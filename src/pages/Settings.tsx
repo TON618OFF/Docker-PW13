@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,12 @@ import { useAppSettings } from "@/contexts/AppSettingsContext";
 import DatabaseStatus from "@/components/DatabaseStatus";
 import DatabaseViewer from "@/components/DatabaseViewer";
 import StorageInitializer from "@/components/StorageInitializer";
+import { usePlayer } from "@/contexts/PlayerContext";
+import ImageUpload from "@/components/ImageUpload";
 
 const Settings = () => {
+  const navigate = useNavigate();
+  const { playTrack } = usePlayer();
   const { theme, language, setTheme, setLanguage } = useAppSettings();
   const [profile, setProfile] = useState({
     username: "",
@@ -24,7 +29,11 @@ const Settings = () => {
     avatar_url: "",
   });
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -33,11 +42,36 @@ const Settings = () => {
   const [favoriteAlbums, setFavoriteAlbums] = useState<any[]>([]);
   const [favoritePlaylists, setFavoritePlaylists] = useState<any[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
     fetchFavorites();
+    fetchUserRole();
   }, []);
+
+  const fetchUserRole = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { data: userData, error } = await supabase
+        .from("users")
+        .select(`
+          role_id,
+          role:roles(role_name)
+        `)
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      if (userData?.role) {
+        setUserRole(userData.role.role_name);
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки роли:", error);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -167,22 +201,32 @@ const Settings = () => {
     }
   };
 
-  const handlePasswordReset = async () => {
-    try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user || !user.email) {
-        toast.error("Email не найден");
-        return;
-      }
+  const handlePasswordChange = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Новый пароль должен быть минимум 6 символов");
+      return;
+    }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/settings`,
+    if (newPassword !== confirmPassword) {
+      toast.error("Пароли не совпадают");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
       });
 
       if (error) throw error;
-      toast.success("Ссылка для восстановления пароля отправлена на email");
+
+      toast.success("Пароль успешно изменён");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (error: any) {
-      toast.error(`Ошибка восстановления пароля: ${error.message}`);
+      toast.error(`Ошибка изменения пароля: ${error.message}`);
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -246,14 +290,14 @@ const Settings = () => {
         <p className="text-muted-foreground">Управление вашим профилем и предпочтениями</p>
       </div>
 
-      {/* Статус базы данных */}
-      <DatabaseStatus />
+      {/* Статус базы данных - только для не-слушателей */}
+      {userRole && userRole !== 'слушатель' && <DatabaseStatus />}
 
-      {/* Инициализация Storage */}
-      <StorageInitializer />
+      {/* Инициализация Storage - только для не-слушателей */}
+      {userRole && userRole !== 'слушатель' && <StorageInitializer />}
 
-      {/* Просмотр базы данных */}
-      <DatabaseViewer />
+      {/* Просмотр базы данных - только для не-слушателей */}
+      {userRole && userRole !== 'слушатель' && <DatabaseViewer />}
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
@@ -264,16 +308,16 @@ const Settings = () => {
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
-          <Card className="p-6 space-y-6 bg-card/50 backdrop-blur">
-            <div className="flex items-center gap-3 pb-4 border-b border-border">
-              <User className="w-5 h-5 text-primary" />
+      <Card className="p-6 space-y-6 bg-card/50 backdrop-blur">
+          <div className="flex items-center gap-3 pb-4 border-b border-border">
+            <User className="w-5 h-5 text-primary" />
               <h2 className="text-xl font-semibold">Профиль пользователя</h2>
-            </div>
+          </div>
 
             <div className="space-y-4">
-              <div className="space-y-2">
+          <div className="space-y-2">
                 <Label htmlFor="username">Имя пользователя *</Label>
-                <Input
+            <Input
                   id="username"
                   value={profile.username}
                   onChange={(e) => setProfile({ ...profile, username: e.target.value })}
@@ -281,9 +325,9 @@ const Settings = () => {
                   required
                   minLength={3}
                   maxLength={50}
-                  className="bg-input border-border"
-                />
-              </div>
+              className="bg-input border-border"
+            />
+          </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -329,17 +373,17 @@ const Settings = () => {
                   placeholder="Расскажите о себе..."
                   rows={4}
                   className="w-full px-3 py-2 border border-border rounded-md bg-input"
-                />
-              </div>
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="avatar_url">URL аватара</Label>
-                <Input
-                  id="avatar_url"
-                  value={profile.avatar_url}
-                  onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
-                  placeholder="https://example.com/avatar.jpg"
-                  className="bg-input border-border"
+          <div className="space-y-2">
+                <Label htmlFor="avatar_url">Аватар</Label>
+                <ImageUpload
+                  currentUrl={profile.avatar_url}
+                  onUploadComplete={(url) => setProfile({ ...profile, avatar_url: url })}
+                  bucket="avatars"
+                  maxSizeMB={5}
+                  aspectRatio="square"
                 />
               </div>
             </div>
@@ -388,7 +432,14 @@ const Settings = () => {
                 ) : (
                   <div className="space-y-2">
                     {favoriteTracks.map((track: any) => (
-                      <div key={track.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                      <div 
+                        key={track.id} 
+                        className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-card/50 cursor-pointer transition-colors"
+                        onClick={() => {
+                          navigate("/library");
+                          setTimeout(() => playTrack(track), 100);
+                        }}
+                      >
                         <div>
                           <p className="font-medium">{track.track_title}</p>
                           <p className="text-sm text-muted-foreground">
@@ -398,7 +449,10 @@ const Settings = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => toggleFavoriteTrack(track.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavoriteTrack(track.id);
+                          }}
                         >
                           <Heart className="w-4 h-4 fill-red-500 text-red-500" />
                         </Button>
@@ -418,7 +472,11 @@ const Settings = () => {
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {favoriteAlbums.map((album: any) => (
-                      <Card key={album.id} className="p-4">
+                      <Card 
+                        key={album.id} 
+                        className="p-4 cursor-pointer hover:bg-card/50 transition-colors"
+                        onClick={() => navigate("/library")}
+                      >
                         {album.album_cover_url && (
                           <img src={album.album_cover_url} alt={album.album_title} className="w-full aspect-square object-cover rounded-lg mb-2" />
                         )}
@@ -428,7 +486,10 @@ const Settings = () => {
                           size="sm"
                           variant="ghost"
                           className="mt-2 w-full"
-                          onClick={() => toggleFavoriteAlbum(album.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavoriteAlbum(album.id);
+                          }}
                         >
                           <Heart className="w-4 h-4 fill-red-500 text-red-500 mr-2" />
                           Удалить из избранного
@@ -449,7 +510,11 @@ const Settings = () => {
                 ) : (
                   <div className="space-y-2">
                     {favoritePlaylists.map((playlist: any) => (
-                      <div key={playlist.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                      <div 
+                        key={playlist.id} 
+                        className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-card/50 cursor-pointer transition-colors"
+                        onClick={() => navigate("/playlists")}
+                      >
                         <div className="flex items-center gap-3">
                           {playlist.playlist_cover_url ? (
                             <img src={playlist.playlist_cover_url} alt={playlist.playlist_title} className="w-12 h-12 rounded-lg object-cover" />
@@ -478,7 +543,10 @@ const Settings = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => toggleFavoritePlaylist(playlist.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavoritePlaylist(playlist.id);
+                          }}
                         >
                           <Heart className="w-4 h-4 fill-red-500 text-red-500" />
                         </Button>
@@ -502,28 +570,28 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label htmlFor="theme">Тема</Label>
                 <Select value={theme} onValueChange={(value: Theme) => setTheme(value)}>
-                  <SelectTrigger id="theme" className="bg-input border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dark">Тёмная</SelectItem>
-                    <SelectItem value="light">Светлая</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SelectTrigger id="theme" className="bg-input border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dark">Тёмная</SelectItem>
+                <SelectItem value="light">Светлая</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="space-y-2">
+          <div className="space-y-2">
                 <Label htmlFor="language">Язык интерфейса</Label>
                 <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
-                  <SelectTrigger id="language" className="bg-input border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ru">Русский</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SelectTrigger id="language" className="bg-input border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ru">Русский</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
             </div>
           </Card>
         </TabsContent>
@@ -537,7 +605,7 @@ const Settings = () => {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">Пароль</Label>
+                <Label htmlFor="password">Текущий пароль</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -558,18 +626,77 @@ const Settings = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Пароль нельзя просмотреть по соображениям безопасности</p>
+                <p className="text-xs text-muted-foreground">Пароль скрыт по соображениям безопасности</p>
+          </div>
+
+          <div className="space-y-2">
+                <Label htmlFor="new_password">Новый пароль</Label>
+                <div className="relative">
+                  <Input
+                    id="new_password"
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Введите новый пароль"
+                    className="bg-input border-border pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+          </div>
+        </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm_password">Подтвердите новый пароль</Label>
+                <Input
+                  id="confirm_password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Повторите новый пароль"
+                  className="bg-input border-border"
+                />
               </div>
 
               <Button
-                onClick={handlePasswordReset}
-                variant="outline"
+                onClick={handlePasswordChange}
+                disabled={changingPassword || !newPassword || !confirmPassword}
                 className="w-full"
               >
-                Отправить ссылку для восстановления пароля
+                {changingPassword ? "Изменение..." : "Изменить пароль"}
               </Button>
+
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground mb-2">Забыли пароль?</p>
+        <Button
+                  onClick={async () => {
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (!user || !user.email) {
+                      toast.error("Email не найден");
+                      return;
+                    }
+
+                    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                      redirectTo: `${window.location.origin}/settings`,
+                    });
+
+                    if (error) throw error;
+                    toast.success("Ссылка для восстановления пароля отправлена на email");
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Отправить ссылку для восстановления пароля
+        </Button>
+              </div>
             </div>
-          </Card>
+      </Card>
         </TabsContent>
       </Tabs>
     </div>

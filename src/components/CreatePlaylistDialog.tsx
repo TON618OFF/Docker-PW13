@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Music } from "lucide-react";
+import ImageUpload from "./ImageUpload";
 
 interface CreatePlaylistDialogProps {
   onPlaylistCreated?: () => void;
@@ -19,6 +20,7 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
   const [formData, setFormData] = useState({
     playlist_title: "",
     playlist_description: "",
+    playlist_cover_url: "",
     is_public: false,
   });
 
@@ -51,6 +53,7 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
         .insert({
           playlist_title: formData.playlist_title.trim(),
           playlist_description: formData.playlist_description.trim() || null,
+          playlist_cover_url: formData.playlist_cover_url || null,
           is_public: formData.is_public,
           user_id: user.id,
         });
@@ -58,7 +61,7 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
       if (error) throw error;
 
       toast.success("Плейлист создан успешно!");
-      setFormData({ playlist_title: "", playlist_description: "", is_public: false });
+      setFormData({ playlist_title: "", playlist_description: "", playlist_cover_url: "", is_public: false });
       setOpen(false);
       onPlaylistCreated?.();
     } catch (error: any) {
@@ -108,6 +111,14 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
               rows={3}
             />
           </div>
+
+          <ImageUpload
+            currentUrl={formData.playlist_cover_url}
+            onUploadComplete={(url) => setFormData({ ...formData, playlist_cover_url: url })}
+            bucket="covers"
+            maxSizeMB={5}
+            aspectRatio="square"
+          />
 
           <div className="flex items-center justify-between">
             <Label htmlFor="is_public">Публичный плейлист</Label>

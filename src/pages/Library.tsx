@@ -4,26 +4,35 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Music, Play, Clock, Upload, Search, Heart } from "lucide-react";
+import { Music, Play, Clock, Upload, Search, Heart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import UploadTrackDialog from "@/components/UploadTrackDialog";
 import ArtistsAlbumsManager from "@/components/ArtistsAlbumsManager";
 import AlbumsManager from "@/components/AlbumsManager";
-import AudioTest from "@/components/AudioTest";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePlayer } from "@/contexts/PlayerContext";
 import type { Track } from "@/types";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Library = () => {
+  const { t } = useTranslation();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"created_at" | "track_title" | "track_play_count" | "track_like_count">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [favoriteTrackIds, setFavoriteTrackIds] = useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { playTrack, setPlaylist } = usePlayer();
 
   useEffect(() => {
+    const initUser = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    initUser();
     fetchTracks();
     fetchFavoriteTracks();
   }, []);
@@ -57,6 +66,7 @@ const Library = () => {
           track_play_count,
           track_like_count,
           track_audio_url,
+          uploaded_by,
           created_at,
           album:albums(
             id,
@@ -134,7 +144,7 @@ const Library = () => {
       }
       setFavoriteTrackIds(newFavorites);
       
-      toast.success(data.action === "added" ? "Трек добавлен в избранное" : "Трек удалён из избранного");
+      toast.success(data.action === "added" ? t("library.trackAdded") : t("library.trackRemoved"));
     } catch (error: any) {
       toast.error(`Ошибка: ${error.message}`);
     }
@@ -144,18 +154,17 @@ const Library = () => {
     <div className="space-y-6 pb-24 md:pb-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Библиотека</h1>
-          <p className="text-muted-foreground">{tracks.length} треков</p>
+          <h1 className="text-3xl font-bold mb-2">{t("library.title")}</h1>
+          <p className="text-muted-foreground">{tracks.length} {t("library.tracks").toLowerCase()}</p>
         </div>
         <UploadTrackDialog onTrackUploaded={fetchTracks} />
       </div>
 
         <Tabs defaultValue="tracks" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="tracks">Треки</TabsTrigger>
-            <TabsTrigger value="artists-albums">Артисты и альбомы</TabsTrigger>
-            <TabsTrigger value="albums">Альбомы</TabsTrigger>
-            <TabsTrigger value="test">Тест аудио</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="tracks">{t("library.tracks")}</TabsTrigger>
+            <TabsTrigger value="artists-albums">{t("library.artistsAlbums")}</TabsTrigger>
+            <TabsTrigger value="albums">{t("library.albums")}</TabsTrigger>
           </TabsList>
         
         <TabsContent value="tracks" className="space-y-6">
@@ -164,7 +173,7 @@ const Library = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
-            placeholder="Поиск по названию или исполнителю..."
+            placeholder={t("library.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-card border-border"
@@ -173,13 +182,13 @@ const Library = () => {
         <div className="flex gap-2">
           <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
             <SelectTrigger className="w-[180px] bg-card border-border">
-              <SelectValue placeholder="Сортировать по" />
+              <SelectValue placeholder={t("library.sortBy")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="created_at">Дате добавления</SelectItem>
-              <SelectItem value="track_title">Названию</SelectItem>
-              <SelectItem value="track_play_count">Прослушиваниям</SelectItem>
-              <SelectItem value="track_like_count">Лайкам</SelectItem>
+              <SelectItem value="created_at">{t("library.sortByDate")}</SelectItem>
+              <SelectItem value="track_title">{t("library.sortByTitle")}</SelectItem>
+              <SelectItem value="track_play_count">{t("library.sortByPlays")}</SelectItem>
+              <SelectItem value="track_like_count">{t("library.sortByLikes")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortOrder} onValueChange={(value: any) => setSortOrder(value)}>
@@ -187,8 +196,8 @@ const Library = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="desc">По убыванию</SelectItem>
-              <SelectItem value="asc">По возрастанию</SelectItem>
+              <SelectItem value="desc">{t("library.sortDesc")}</SelectItem>
+              <SelectItem value="asc">{t("library.sortAsc")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -203,12 +212,12 @@ const Library = () => {
         <Card className="p-12 text-center bg-card/50 backdrop-blur">
           <Music className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">
-            {searchQuery ? "Треки не найдены" : "Библиотека пуста"}
+            {searchQuery ? t("library.emptySearch") : t("library.empty")}
           </h3>
           <p className="text-muted-foreground mb-6">
             {searchQuery
-              ? "Попробуйте изменить запрос"
-              : "Загрузите свои первые треки"}
+              ? t("library.emptyMessage")
+              : t("library.uploadFirst")}
           </p>
           {!searchQuery && (
                 <UploadTrackDialog onTrackUploaded={fetchTracks} />
@@ -248,7 +257,7 @@ const Library = () => {
                           {track.genres.slice(0, 2).map((genre) => (
                             <span
                               key={genre.id}
-                              className="text-xs bg-secondary/50 px-2 py-1 rounded-full"
+                              className="text-xs bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 border border-yellow-400/30 px-2 py-1 rounded-full text-yellow-300 font-medium"
                             >
                               {genre.genre_name}
                             </span>
@@ -263,25 +272,52 @@ const Library = () => {
                 </div>
 
                     <div className="hidden md:block text-xs text-muted-foreground">
-                      {track.track_play_count} прослушиваний
+                      {track.track_play_count} {t("library.plays")}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(track.id);
-                      }}
-                      className="hover:bg-transparent"
-                    >
-                      <Heart 
-                        className={`w-5 h-5 ${
-                          favoriteTrackIds.has(track.id) 
-                            ? "fill-red-500 text-red-500" 
-                            : "text-muted-foreground"
-                        }`} 
-                      />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(track.id);
+                        }}
+                        className="hover:bg-transparent"
+                      >
+                        <Heart 
+                          className={`w-5 h-5 ${
+                            favoriteTrackIds.has(track.id) 
+                              ? "fill-red-500 text-red-500" 
+                              : "text-muted-foreground"
+                          }`} 
+                        />
+                      </Button>
+                      {currentUserId && track.uploaded_by === currentUserId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm(t("library.confirmRemove"))) {
+                              const { error } = await supabase
+                                .from("tracks")
+                                .delete()
+                                .eq("id", track.id);
+                              
+                              if (error) {
+                                toast.error("Ошибка удаления трека");
+                              } else {
+                                toast.success("Трек удалён");
+                                fetchTracks();
+                              }
+                            }
+                          }}
+                          className="hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
               </div>
             </Card>
           ))}
@@ -295,10 +331,6 @@ const Library = () => {
 
         <TabsContent value="albums">
           <AlbumsManager />
-        </TabsContent>
-
-        <TabsContent value="test">
-          <AudioTest />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ListMusic, Plus, Music, Lock, Globe } from "lucide-react";
+import { ListMusic, Plus, Music, Lock, Globe, Trash2, Heart } from "lucide-react";
 import { toast } from "sonner";
 import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import AddSongToPlaylistDialog from "@/components/AddSongToPlaylistDialog";
@@ -18,12 +19,55 @@ interface Playlist {
 }
 
 const Playlists = () => {
+  const navigate = useNavigate();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoritePlaylistIds, setFavoritePlaylistIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchPlaylists();
+    fetchFavoritePlaylists();
   }, []);
+
+  const fetchFavoritePlaylists = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("favorites_playlists")
+        .select("playlist_id")
+        .eq("user_id", user.id);
+
+      if (data) {
+        setFavoritePlaylistIds(new Set(data.map(item => item.playlist_id)));
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки избранных плейлистов:", error);
+    }
+  };
+
+  const toggleFavoritePlaylist = async (playlistId: string) => {
+    try {
+      const { data, error } = await supabase.rpc("toggle_favorite_playlist", {
+        p_playlist_id: playlistId,
+      });
+
+      if (error) throw error;
+      
+      const newFavorites = new Set(favoritePlaylistIds);
+      if (data.action === "added") {
+        newFavorites.add(playlistId);
+      } else {
+        newFavorites.delete(playlistId);
+      }
+      setFavoritePlaylistIds(newFavorites);
+      
+      toast.success(data.action === "added" ? "Плейлист добавлен в избранное" : "Плейлист удалён из избранного");
+    } catch (error: any) {
+      toast.error(`Ошибка: ${error.message}`);
+    }
+  };
 
   const fetchPlaylists = async () => {
     try {
@@ -87,6 +131,7 @@ const Playlists = () => {
             <Card
               key={playlist.id}
               className="group cursor-pointer hover:bg-card/80 transition-all overflow-hidden"
+              onClick={() => navigate(`/playlists/${playlist.id}`)}
             >
               <div className="aspect-square bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 relative overflow-hidden">
                 {playlist.playlist_cover_url ? (
@@ -123,7 +168,10 @@ const Playlists = () => {
                   <p className="text-sm text-muted-foreground">
                     {playlist.song_count} {playlist.song_count === 1 ? "трек" : "треков"}
                   </p>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div 
+                    className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <AddSongToPlaylistDialog 
                       playlistId={playlist.id}
                       playlistName={playlist.playlist_title}
@@ -132,8 +180,42 @@ const Playlists = () => {
                     <Button
                       size="sm"
                       variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavoritePlaylist(playlist.id);
+                      }}
+                      className="hover:bg-transparent"
                     >
-                      Открыть
+                      <Heart 
+                        className={`w-4 h-4 ${
+                          favoritePlaylistIds.has(playlist.id) 
+                            ? "fill-red-500 text-red-500" 
+                            : "text-muted-foreground"
+                        }`} 
+                      />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (confirm("Вы уверены, что хотите удалить этот плейлист?")) {
+                          const { error } = await supabase
+                            .from("playlists")
+                            .delete()
+                            .eq("id", playlist.id);
+                          
+                          if (error) {
+                            toast.error("Ошибка удаления плейлиста");
+                          } else {
+                            toast.success("Плейлист удалён");
+                            fetchPlaylists();
+                          }
+                        }
+                      }}
+                      className="hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>

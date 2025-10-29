@@ -3,11 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Disc, Music, Calendar, Clock } from "lucide-react";
+import { Disc, Music, Calendar, Clock, Trash2, Heart } from "lucide-react";
 
 interface Album {
   id: string;
@@ -22,16 +20,64 @@ interface Album {
   track_count: number;
   total_duration: number;
   created_at: string;
+  isOwner?: boolean;
 }
 
 const AlbumsManager = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [favoriteAlbumIds, setFavoriteAlbumIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    const initUser = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        setCurrentUserId(user.id);
+        fetchFavoriteAlbums(user.id);
+      }
+    };
+    initUser();
     fetchAlbums();
   }, []);
+
+  const fetchFavoriteAlbums = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from("favorites_albums")
+        .select("album_id")
+        .eq("user_id", userId);
+
+      if (data) {
+        setFavoriteAlbumIds(new Set(data.map(item => item.album_id)));
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки избранных альбомов:", error);
+    }
+  };
+
+  const toggleFavoriteAlbum = async (albumId: string) => {
+    try {
+      const { data, error } = await supabase.rpc("toggle_favorite_album", {
+        p_album_id: albumId,
+      });
+
+      if (error) throw error;
+      
+      const newFavorites = new Set(favoriteAlbumIds);
+      if (data.action === "added") {
+        newFavorites.add(albumId);
+      } else {
+        newFavorites.delete(albumId);
+      }
+      setFavoriteAlbumIds(newFavorites);
+      
+      toast.success(data.action === "added" ? "Альбом добавлен в избранное" : "Альбом удалён из избранного");
+    } catch (error: any) {
+      toast.error(`Ошибка: ${error.message}`);
+    }
+  };
 
   const fetchAlbums = async () => {
     try {
@@ -50,7 +96,8 @@ const AlbumsManager = () => {
           ),
           tracks:tracks(
             id,
-            track_duration
+            track_duration,
+            uploaded_by
           )
         `)
         .eq("is_active", true)
@@ -59,17 +106,22 @@ const AlbumsManager = () => {
       if (error) throw error;
 
       // Преобразуем данные для удобства использования
-      const transformedAlbums = (data || []).map(album => ({
-        id: album.id,
-        album_title: album.album_title,
-        album_release_date: album.album_release_date,
-        album_cover_url: album.album_cover_url,
-        album_description: album.album_description,
-        artist: album.artist,
-        track_count: album.tracks.length,
-        total_duration: album.tracks.reduce((sum, track) => sum + track.track_duration, 0),
-        created_at: album.created_at,
-      }));
+      const transformedAlbums = (data || []).map(album => {
+        const tracks = album.tracks || [];
+        const isOwner = currentUserId && tracks.some((track: any) => track.uploaded_by === currentUserId);
+        return {
+          id: album.id,
+          album_title: album.album_title,
+          album_release_date: album.album_release_date,
+          album_cover_url: album.album_cover_url,
+          album_description: album.album_description,
+          artist: album.artist,
+          track_count: tracks.length,
+          total_duration: tracks.reduce((sum: number, track: any) => sum + track.track_duration, 0),
+          created_at: album.created_at,
+          isOwner,
+        };
+      });
 
       setAlbums(transformedAlbums);
     } catch (error: any) {
@@ -187,6 +239,55 @@ const AlbumsManager = () => {
                     </div>
                   </div>
                 </div>
+                {album.isOwner && (
+                  <div className="pt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (confirm("Вы уверены, что хотите удалить этот альбом? Все треки в альбоме также будут удалены.")) {
+                          const { error } = await supabase
+                            .from("albums")
+                            .delete()
+                            .eq("id", album.id);
+                          
+                          if (error) {
+                            toast.error("Ошибка удаления альбома");
+                          } else {
+                            toast.success("Альбом удалён");
+                            fetchAlbums();
+                          }
+                        }
+                      }}
+                      className="hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Удалить
+                    </Button>
+                  </div>
+                )}
+                {currentUserId && (
+                  <div className="pt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavoriteAlbum(album.id);
+                      }}
+                      className="hover:bg-transparent"
+                    >
+                      <Heart 
+                        className={`w-5 h-5 ${
+                          favoriteAlbumIds.has(album.id) 
+                            ? "fill-red-500 text-red-500" 
+                            : "text-muted-foreground"
+                        }`} 
+                      />
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           ))}

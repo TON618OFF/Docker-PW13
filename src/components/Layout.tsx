@@ -2,17 +2,27 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Music2, Library, ListMusic, BarChart3, Settings, LogOut } from "lucide-react";
+import { Music2, Library, ListMusic, BarChart3, User, LogOut, Globe } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import MusicPlayer from "./MusicPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
+import { useAppSettings } from "@/contexts/AppSettingsContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Layout = () => {
+  const { t } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTrack } = usePlayer();
+  const { language, setLanguage } = useAppSettings();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -36,18 +46,18 @@ const Layout = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success("Вы вышли из системы");
+    toast.success(t("common.loggedOut"));
     navigate("/auth");
   };
 
   if (!user) return null;
 
   const navItems = [
-    { path: "/", icon: Music2, label: "Главная" },
-    { path: "/library", icon: Library, label: "Библиотека" },
-    { path: "/playlists", icon: ListMusic, label: "Плейлисты" },
-    { path: "/analytics", icon: BarChart3, label: "Аналитика" },
-    { path: "/settings", icon: Settings, label: "Настройки" },
+    { path: "/", icon: Music2, label: t("common.home") },
+    { path: "/library", icon: Library, label: t("common.library") },
+    { path: "/playlists", icon: ListMusic, label: t("common.playlists") },
+    { path: "/analytics", icon: BarChart3, label: t("common.analytics") },
+    { path: "/profile", icon: User, label: t("common.profile") },
   ];
 
   return (
@@ -86,14 +96,33 @@ const Layout = () => {
             })}
           </nav>
 
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="gap-2 text-muted-foreground hover:text-destructive"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Выход</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Globe className="w-4 h-4" />
+                  {language === "ru" ? "RU" : "EN"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setLanguage("ru")}>
+                  {t("common.russian")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage("en")}>
+                  {t("common.english")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="gap-2 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">{t("common.logout")}</span>
+            </Button>
+          </div>
         </div>
       </header>
 

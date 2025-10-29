@@ -7,8 +7,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Library from "./pages/Library";
 import Playlists from "./pages/Playlists";
+import PlaylistDetail from "./pages/PlaylistDetail";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 import { PlayerProvider } from "./contexts/PlayerContext";
@@ -30,8 +32,10 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/library" element={<Library />} />
                 <Route path="/playlists" element={<Playlists />} />
+                <Route path="/playlists/:id" element={<PlaylistDetail />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/profile" element={<Profile />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

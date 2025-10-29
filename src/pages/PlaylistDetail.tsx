@@ -1,0 +1,281 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Music, ArrowLeft, Play, Clock, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { usePlayer } from "@/contexts/PlayerContext";
+import type { Track } from "@/types";
+import { useTranslation } from "@/hooks/useTranslation";
+
+const PlaylistDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { playTrack, setPlaylist } = usePlayer();
+  const [playlist, setPlaylistData] = useState<any>(null);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initUser = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    initUser();
+    fetchPlaylistData();
+  }, [id]);
+
+  const fetchPlaylistData = async () => {
+    if (!id) return;
+
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      // Загружаем данные плейлиста
+      const { data: playlistData, error: playlistError } = await supabase
+        .from("playlists")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (playlistError) throw playlistError;
+
+      // Проверяем доступ
+      if (!playlistData.is_public && playlistData.user_id !== user.id) {
+        toast.error("У вас нет доступа к этому плейлисту");
+        navigate("/playlists");
+        return;
+      }
+
+      setPlaylistData(playlistData);
+
+      // Загружаем треки плейлиста
+      const { data: tracksData, error: tracksError } = await supabase
+        .from("playlist_tracks")
+        .select(`
+          track_order,
+          track:tracks(
+            id,
+            track_title,
+            track_duration,
+            track_play_count,
+            track_like_count,
+            track_audio_url,
+            uploaded_by,
+            created_at,
+            album:albums(
+              id,
+              album_title,
+              album_cover_url,
+              artist:artists(
+                id,
+                artist_name
+              )
+            ),
+            genres:track_genres(
+              id,
+              genre:genres(
+                id,
+                genre_name
+              )
+            )
+          )
+        `)
+        .eq("playlist_id", id)
+        .order("track_order", { ascending: true });
+
+      if (tracksError) throw tracksError;
+
+      const transformedTracks: Track[] = (tracksData || [])
+        .map((item: any) => ({
+          ...item.track,
+          genres: item.track.genres.map((tg: any) => tg.genre)
+        }))
+        .filter((track: any) => track.id); // Фильтруем удаленные треки
+
+      setTracks(transformedTracks);
+      setPlaylist(transformedTracks);
+    } catch (error: any) {
+      toast.error(`Ошибка загрузки плейлиста: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handlePlayTrack = (track: Track) => {
+    playTrack(track);
+  };
+
+  const handlePlayAll = () => {
+    if (tracks.length > 0) {
+      playTrack(tracks[0]);
+      toast.success(`Начинаем прослушивание ${tracks.length} треков`);
+    }
+  };
+
+  const handleRemoveTrack = async (trackId: string) => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from("playlist_tracks")
+        .delete()
+        .eq("playlist_id", id)
+        .eq("track_id", trackId);
+
+      if (error) throw error;
+
+      toast.success("Трек удален из плейлиста");
+      fetchPlaylistData();
+    } catch (error: any) {
+      toast.error(`Ошибка удаления трека: ${error.message}`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  if (!playlist) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold mb-4">Плейлист не найден</h2>
+        <Button onClick={() => navigate("/playlists")}>Вернуться к плейлистам</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-24 md:pb-8">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/playlists")}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Назад
+        </Button>
+      </div>
+
+      {/* Header */}
+      <Card className="p-8 bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 border-primary/20">
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="w-48 h-48 rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
+            {playlist.playlist_cover_url ? (
+              <img
+                src={playlist.playlist_cover_url}
+                alt={playlist.playlist_title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Music className="w-24 h-24 text-primary/40" />
+            )}
+          </div>
+          
+          <div className="flex-1">
+            <h1 className="text-4xl font-bold mb-2">{playlist.playlist_title}</h1>
+            {playlist.playlist_description && (
+              <p className="text-muted-foreground mb-4">{playlist.playlist_description}</p>
+            )}
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+              <span>{tracks.length} {tracks.length === 1 ? "трек" : "треков"}</span>
+              <span>•</span>
+              <span>
+                {Math.floor(tracks.reduce((sum, t) => sum + t.track_duration, 0) / 60)} минут
+              </span>
+            </div>
+            <Button onClick={handlePlayAll} className="gap-2">
+              <Play className="w-4 h-4" />
+              Играть все
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Tracks List */}
+      {tracks.length === 0 ? (
+        <Card className="p-12 text-center bg-card/50 backdrop-blur">
+          <Music className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Плейлист пуст</h3>
+          <p className="text-muted-foreground mb-6">
+            Добавьте треки в этот плейлист
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {tracks.map((track, index) => (
+            <Card
+              key={track.id}
+              className="p-4 hover:bg-card/80 transition-colors cursor-pointer group"
+              onClick={() => handlePlayTrack(track)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center relative overflow-hidden group-hover:scale-110 transition-transform">
+                  {track.album.album_cover_url ? (
+                    <img
+                      src={track.album.album_cover_url}
+                      alt={track.album.album_title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Music className="w-6 h-6 text-primary" />
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Play className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-6">{index + 1}</span>
+                    <h3 className="font-semibold truncate">{track.track_title}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {track.album.artist.artist_name} • {track.album.album_title}
+                  </p>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  {formatDuration(track.track_duration)}
+                </div>
+
+                {currentUserId && playlist.user_id === currentUserId && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm("Удалить трек из плейлиста?")) {
+                        handleRemoveTrack(track.id);
+                      }
+                    }}
+                    className="hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PlaylistDetail;
+

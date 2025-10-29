@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Music, User, Calendar, Search, Edit, Trash2 } from "lucide-react";
+import ImageUpload from "./ImageUpload";
 
 interface Artist {
   id: string;
@@ -17,6 +19,7 @@ interface Artist {
   artist_image_url: string | null;
   genre: string | null;
   created_at: string;
+  isOwner?: boolean;
 }
 
 interface Album {
@@ -38,10 +41,24 @@ const ArtistsAlbumsManager = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("artists");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    const initUser = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    initUser();
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchData();
+    }
+  }, [currentUserId]);
 
   const fetchData = async () => {
     try {
@@ -63,7 +80,33 @@ const ArtistsAlbumsManager = () => {
           .order("album_title")
       ]);
 
-      if (artistsResult.data) setArtists(artistsResult.data);
+      if (artistsResult.data) {
+        // Получаем треки для определения владельца артистов
+        if (currentUserId) {
+          const { data: tracksData } = await supabase
+            .from("tracks")
+            .select("album_id, uploaded_by")
+            .eq("uploaded_by", currentUserId);
+          
+          const userAlbumIds = new Set((tracksData || []).map(t => t.album_id));
+          
+          // Получаем артистов, связанных с альбомами пользователя
+          const { data: userArtists } = await supabase
+            .from("albums")
+            .select("artist_id")
+            .in("id", Array.from(userAlbumIds));
+          
+          const userArtistIds = new Set((userArtists || []).map(a => a.artist_id));
+          
+          const artistsWithOwnership = artistsResult.data.map(artist => ({
+            ...artist,
+            isOwner: userArtistIds.has(artist.id)
+          }));
+          setArtists(artistsWithOwnership);
+        } else {
+          setArtists(artistsResult.data);
+        }
+      }
       if (albumsResult.data) setAlbums(albumsResult.data);
     } catch (error: any) {
       toast.error("Ошибка загрузки данных");
@@ -131,13 +174,26 @@ const ArtistsAlbumsManager = () => {
               {filteredArtists.map((artist) => (
                 <Card key={artist.id} className="group hover:bg-card/80 transition-all">
                   <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg truncate">{artist.artist_name}</CardTitle>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <EditArtistDialog artist={artist} onArtistUpdated={fetchData} />
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                    <div className="flex items-center gap-3">
+                      {artist.artist_image_url && (
+                        <img
+                          src={artist.artist_image_url}
+                          alt={artist.artist_name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-primary/20"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg truncate">{artist.artist_name}</CardTitle>
+                          {artist.isOwner && (
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                              <EditArtistDialog artist={artist} onArtistUpdated={fetchData} />
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
@@ -148,7 +204,7 @@ const ArtistsAlbumsManager = () => {
                       </p>
                     )}
                     {artist.genre && (
-                      <span className="inline-block px-2 py-1 bg-secondary/50 rounded-full text-xs">
+                      <span className="inline-block px-2 py-1 bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 border border-yellow-400/30 rounded-full text-xs text-yellow-300 font-medium">
                         {artist.genre}
                       </span>
                     )}
@@ -239,12 +295,31 @@ const ArtistsAlbumsManager = () => {
 const CreateArtistDialog = ({ onArtistCreated }: { onArtistCreated: () => void }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [genres, setGenres] = useState<Array<{id: string, genre_name: string}>>([]);
   const [formData, setFormData] = useState({
     artist_name: "",
     artist_bio: "",
     artist_image_url: "",
-    genre: "",
+    genre: "none",
   });
+
+  useEffect(() => {
+    if (open) {
+      loadGenres();
+    }
+  }, [open]);
+
+  const loadGenres = async () => {
+    try {
+      const { data } = await supabase
+        .from("genres")
+        .select("id, genre_name")
+        .order("genre_name");
+      if (data) setGenres(data);
+    } catch (error) {
+      console.error("Ошибка загрузки жанров:", error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,13 +334,13 @@ const CreateArtistDialog = ({ onArtistCreated }: { onArtistCreated: () => void }
         artist_name: formData.artist_name.trim(),
         artist_bio: formData.artist_bio.trim() || null,
         artist_image_url: formData.artist_image_url.trim() || null,
-        genre: formData.genre.trim() || null,
+        genre: formData.genre === "none" ? null : formData.genre.trim() || null,
       });
 
       if (error) throw error;
 
       toast.success("Артист создан!");
-      setFormData({ artist_name: "", artist_bio: "", artist_image_url: "", genre: "" });
+      setFormData({ artist_name: "", artist_bio: "", artist_image_url: "", genre: "none" });
       setOpen(false);
       onArtistCreated();
     } catch (error: any) {
@@ -308,23 +383,31 @@ const CreateArtistDialog = ({ onArtistCreated }: { onArtistCreated: () => void }
               rows={3}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="artist_image_url">URL изображения</Label>
-            <Input
-              id="artist_image_url"
-              value={formData.artist_image_url}
-              onChange={(e) => setFormData({ ...formData, artist_image_url: e.target.value })}
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
+          <ImageUpload
+            currentUrl={formData.artist_image_url}
+            onUploadComplete={(url) => setFormData({ ...formData, artist_image_url: url })}
+            bucket="covers"
+            maxSizeMB={5}
+            aspectRatio="square"
+          />
           <div className="space-y-2">
             <Label htmlFor="genre">Жанр</Label>
-            <Input
-              id="genre"
+            <Select
               value={formData.genre}
-              onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-              placeholder="Основной жанр"
-            />
+              onValueChange={(value) => setFormData({ ...formData, genre: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите жанр (необязательно)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Без жанра</SelectItem>
+                {genres.map((genre) => (
+                  <SelectItem key={genre.id} value={genre.genre_name}>
+                    {genre.genre_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1">
@@ -445,15 +528,13 @@ const CreateAlbumDialog = ({
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="album_cover_url">URL обложки</Label>
-            <Input
-              id="album_cover_url"
-              value={formData.album_cover_url}
-              onChange={(e) => setFormData({ ...formData, album_cover_url: e.target.value })}
-              placeholder="https://example.com/cover.jpg"
-            />
-          </div>
+          <ImageUpload
+            currentUrl={formData.album_cover_url}
+            onUploadComplete={(url) => setFormData({ ...formData, album_cover_url: url })}
+            bucket="covers"
+            maxSizeMB={5}
+            aspectRatio="square"
+          />
           <div className="space-y-2">
             <Label htmlFor="album_description">Описание</Label>
             <Textarea
@@ -488,12 +569,31 @@ const EditArtistDialog = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [genres, setGenres] = useState<Array<{id: string, genre_name: string}>>([]);
   const [formData, setFormData] = useState({
     artist_name: artist.artist_name,
     artist_bio: artist.artist_bio || "",
     artist_image_url: artist.artist_image_url || "",
-    genre: artist.genre || "",
+    genre: artist.genre || "none",
   });
+
+  useEffect(() => {
+    if (open) {
+      loadGenres();
+    }
+  }, [open]);
+
+  const loadGenres = async () => {
+    try {
+      const { data } = await supabase
+        .from("genres")
+        .select("id, genre_name")
+        .order("genre_name");
+      if (data) setGenres(data);
+    } catch (error) {
+      console.error("Ошибка загрузки жанров:", error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -510,7 +610,7 @@ const EditArtistDialog = ({
           artist_name: formData.artist_name.trim(),
           artist_bio: formData.artist_bio.trim() || null,
           artist_image_url: formData.artist_image_url.trim() || null,
-          genre: formData.genre.trim() || null,
+          genre: formData.genre === "none" ? null : formData.genre.trim() || null,
         })
         .eq("id", artist.id);
 
@@ -558,23 +658,31 @@ const EditArtistDialog = ({
               rows={3}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit_artist_image_url">URL изображения</Label>
-            <Input
-              id="edit_artist_image_url"
-              value={formData.artist_image_url}
-              onChange={(e) => setFormData({ ...formData, artist_image_url: e.target.value })}
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
+          <ImageUpload
+            currentUrl={formData.artist_image_url}
+            onUploadComplete={(url) => setFormData({ ...formData, artist_image_url: url })}
+            bucket="covers"
+            maxSizeMB={5}
+            aspectRatio="square"
+          />
           <div className="space-y-2">
             <Label htmlFor="edit_genre">Жанр</Label>
-            <Input
-              id="edit_genre"
+            <Select
               value={formData.genre}
-              onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-              placeholder="Основной жанр"
-            />
+              onValueChange={(value) => setFormData({ ...formData, genre: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите жанр (необязательно)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Без жанра</SelectItem>
+                {genres.map((genre) => (
+                  <SelectItem key={genre.id} value={genre.genre_name}>
+                    {genre.genre_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1">
@@ -691,15 +799,13 @@ const EditAlbumDialog = ({
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit_album_cover_url">URL обложки</Label>
-            <Input
-              id="edit_album_cover_url"
-              value={formData.album_cover_url}
-              onChange={(e) => setFormData({ ...formData, album_cover_url: e.target.value })}
-              placeholder="https://example.com/cover.jpg"
-            />
-          </div>
+          <ImageUpload
+            currentUrl={formData.album_cover_url}
+            onUploadComplete={(url) => setFormData({ ...formData, album_cover_url: url })}
+            bucket="covers"
+            maxSizeMB={5}
+            aspectRatio="square"
+          />
           <div className="space-y-2">
             <Label htmlFor="edit_album_description">Описание</Label>
             <Textarea

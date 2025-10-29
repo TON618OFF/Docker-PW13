@@ -61,15 +61,49 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
 
   const loadAlbumsForArtist = async (artistId: string) => {
     try {
-      const { data } = await supabase
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        setAlbums([]);
+        return;
+      }
+
+      // Получаем альбомы артиста
+      const { data: albumsData } = await supabase
         .from("albums")
-        .select("id, album_title, artist_id")
+        .select(`
+          id, 
+          album_title, 
+          artist_id,
+          tracks:tracks(id, uploaded_by)
+        `)
         .eq("artist_id", artistId)
         .order("album_title");
       
-      setAlbums(data || []);
+      if (!albumsData) {
+        setAlbums([]);
+        return;
+      }
+
+      // Фильтруем альбомы:
+      // 1. Альбомы, где у пользователя уже есть треки (владелец альбома)
+      // 2. Пустые альбомы (можно добавить первый трек)
+      const filteredAlbums = albumsData.filter(album => {
+        if (!album.tracks || album.tracks.length === 0) {
+          // Пустой альбом - можно добавить трек
+          return true;
+        }
+        // Проверяем, есть ли хотя бы один трек текущего пользователя
+        return album.tracks.some((track: any) => track.uploaded_by === user.id);
+      });
+
+      setAlbums(filteredAlbums.map(album => ({
+        id: album.id,
+        album_title: album.album_title,
+        artist_id: album.artist_id
+      })));
     } catch (error) {
       console.error("Ошибка загрузки альбомов:", error);
+      setAlbums([]);
     }
   };
 

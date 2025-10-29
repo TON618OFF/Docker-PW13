@@ -970,6 +970,17 @@ INSERT
 WITH
     CHECK (TRUE);
 
+CREATE POLICY "Users can delete own albums" ON public.albums FOR DELETE TO authenticated USING (
+    EXISTS (
+        SELECT 1
+        FROM public.tracks
+        WHERE
+            tracks.album_id = albums.id
+            AND tracks.uploaded_by = auth.uid ()
+        LIMIT 1
+    )
+);
+
 -- Политики для треков
 CREATE POLICY "Anyone can view public tracks" ON public.tracks FOR
 SELECT TO authenticated USING (is_public = TRUE);
@@ -986,6 +997,8 @@ WITH
 CREATE POLICY "Users can update own tracks" ON public.tracks FOR
 UPDATE TO authenticated USING (uploaded_by = auth.uid ());
 
+CREATE POLICY "Users can delete own tracks" ON public.tracks FOR DELETE TO authenticated USING (uploaded_by = auth.uid ());
+
 -- Политики для плейлистов
 CREATE POLICY "Users can view own playlists" ON public.playlists FOR
 SELECT TO authenticated USING (user_id = auth.uid ());
@@ -1001,6 +1014,8 @@ WITH
 
 CREATE POLICY "Users can update own playlists" ON public.playlists FOR
 UPDATE TO authenticated USING (user_id = auth.uid ());
+
+CREATE POLICY "Users can delete own playlists" ON public.playlists FOR DELETE TO authenticated USING (user_id = auth.uid ());
 
 -- Политики для связей трек-жанр
 CREATE POLICY "Anyone can view track genres" ON public.track_genres FOR
@@ -1123,8 +1138,9 @@ VALUES ('Поп', 'Популярная музыка'),
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES 
-    ('songs', 'songs', FALSE, 52428800, ARRAY['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/mp4']),
-    ('covers', 'covers', TRUE, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+  ('songs', 'songs', FALSE, 52428800, ARRAY['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/mp4']),
+  ('covers', 'covers', TRUE, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp']),
+  ('avatars', 'avatars', TRUE, 5242880, ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS политики
@@ -1136,6 +1152,14 @@ DROP POLICY IF EXISTS "Anyone can view covers" ON storage.objects;
 
 DROP POLICY IF EXISTS "Authenticated users can upload covers" ON storage.objects;
 
+DROP POLICY IF EXISTS "Anyone can view avatars" ON storage.objects;
+
+DROP POLICY IF EXISTS "Authenticated users can upload avatars" ON storage.objects;
+
+DROP POLICY IF EXISTS "Users can delete own avatars" ON storage.objects;
+
+DROP POLICY IF EXISTS "Users can update own avatars" ON storage.objects;
+
 CREATE POLICY "Authenticated users can upload songs"
     ON storage.objects FOR INSERT
     TO authenticated
@@ -1143,6 +1167,15 @@ CREATE POLICY "Authenticated users can upload songs"
 
 CREATE POLICY "Users can view own songs"
     ON storage.objects FOR SELECT
+    TO authenticated
+    USING (bucket_id = 'songs' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Политика для просмотра всех песен (публичных) - позволяет слушать треки других пользователей
+CREATE POLICY "Anyone can view public songs" ON storage.objects FOR
+SELECT TO authenticated USING (bucket_id = 'songs');
+
+CREATE POLICY "Users can delete own songs"
+    ON storage.objects FOR DELETE
     TO authenticated
     USING (bucket_id = 'songs' AND auth.uid()::text = (storage.foldername(name))[1]);
 
@@ -1154,6 +1187,38 @@ INSERT
     TO authenticated
 WITH
     CHECK (bucket_id = 'covers');
+
+-- RLS политики для bucket 'avatars'
+CREATE POLICY "Anyone can view avatars" ON storage.objects FOR
+SELECT TO authenticated USING (bucket_id = 'avatars');
+
+CREATE POLICY "Authenticated users can upload avatars"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'avatars' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can update own avatars"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'avatars' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  )
+  WITH CHECK (
+    bucket_id = 'avatars' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can delete own avatars"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'avatars' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
 
 -- =================================================================================================
 -- КОНЕЦ СКРИПТА
