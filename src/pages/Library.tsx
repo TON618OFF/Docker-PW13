@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Music, Play, Clock, Upload, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Music, Play, Clock, Upload, Search, Heart } from "lucide-react";
 import { toast } from "sonner";
 import UploadTrackDialog from "@/components/UploadTrackDialog";
 import ArtistsAlbumsManager from "@/components/ArtistsAlbumsManager";
@@ -17,11 +18,33 @@ const Library = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"created_at" | "track_title" | "track_play_count" | "track_like_count">("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [favoriteTrackIds, setFavoriteTrackIds] = useState<Set<string>>(new Set());
   const { playTrack, setPlaylist } = usePlayer();
 
   useEffect(() => {
     fetchTracks();
+    fetchFavoriteTracks();
   }, []);
+
+  const fetchFavoriteTracks = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("favorites_tracks")
+        .select("track_id")
+        .eq("user_id", user.id);
+
+      if (data) {
+        setFavoriteTrackIds(new Set(data.map(item => item.track_id)));
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки избранных треков:", error);
+    }
+  };
 
   const fetchTracks = async () => {
     try {
@@ -53,7 +76,7 @@ const Library = () => {
           )
         `)
         .eq("is_public", true)
-        .order("created_at", { ascending: false });
+        .order(sortBy, { ascending: sortOrder === "asc" });
 
       if (error) throw error;
       
@@ -72,6 +95,10 @@ const Library = () => {
     }
   };
 
+  useEffect(() => {
+    fetchTracks();
+  }, [sortBy, sortOrder]);
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -89,6 +116,28 @@ const Library = () => {
     console.log('Playing track:', track);
     console.log('Track audio URL:', track.track_audio_url);
     playTrack(track);
+  };
+
+  const toggleFavorite = async (trackId: string) => {
+    try {
+      const { data, error } = await supabase.rpc("toggle_favorite_track", {
+        p_track_id: trackId,
+      });
+
+      if (error) throw error;
+      
+      const newFavorites = new Set(favoriteTrackIds);
+      if (data.action === "added") {
+        newFavorites.add(trackId);
+      } else {
+        newFavorites.delete(trackId);
+      }
+      setFavoriteTrackIds(newFavorites);
+      
+      toast.success(data.action === "added" ? "Трек добавлен в избранное" : "Трек удалён из избранного");
+    } catch (error: any) {
+      toast.error(`Ошибка: ${error.message}`);
+    }
   };
 
   return (
@@ -110,15 +159,39 @@ const Library = () => {
           </TabsList>
         
         <TabsContent value="tracks" className="space-y-6">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <Input
-          placeholder="Поиск по названию или исполнителю..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 bg-card border-border"
-        />
+      {/* Search and Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по названию или исполнителю..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-card border-border"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+            <SelectTrigger className="w-[180px] bg-card border-border">
+              <SelectValue placeholder="Сортировать по" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_at">Дате добавления</SelectItem>
+              <SelectItem value="track_title">Названию</SelectItem>
+              <SelectItem value="track_play_count">Прослушиваниям</SelectItem>
+              <SelectItem value="track_like_count">Лайкам</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortOrder} onValueChange={(value: any) => setSortOrder(value)}>
+            <SelectTrigger className="w-[120px] bg-card border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="desc">По убыванию</SelectItem>
+              <SelectItem value="asc">По возрастанию</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Songs List */}
@@ -192,6 +265,23 @@ const Library = () => {
                     <div className="hidden md:block text-xs text-muted-foreground">
                       {track.track_play_count} прослушиваний
                     </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(track.id);
+                      }}
+                      className="hover:bg-transparent"
+                    >
+                      <Heart 
+                        className={`w-5 h-5 ${
+                          favoriteTrackIds.has(track.id) 
+                            ? "fill-red-500 text-red-500" 
+                            : "text-muted-foreground"
+                        }`} 
+                      />
+                    </Button>
               </div>
             </Card>
           ))}

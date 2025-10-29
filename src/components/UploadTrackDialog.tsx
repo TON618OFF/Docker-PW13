@@ -171,7 +171,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
         return;
       }
 
-      // Создаем трек
+      // Создаем трек (is_public = TRUE по умолчанию)
       const { data: trackData, error: trackError } = await supabase
         .from("tracks")
         .insert({
@@ -180,6 +180,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
           album_id: formData.album_id,
           track_audio_url: filePath,
           uploaded_by: user.id,
+          is_public: true, // По умолчанию публичный
         })
         .select()
         .single();

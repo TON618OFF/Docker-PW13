@@ -12,29 +12,32 @@ import Settings from "./pages/Settings";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 import { PlayerProvider } from "./contexts/PlayerContext";
+import { AppSettingsProvider } from "./contexts/AppSettingsContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <PlayerProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route element={<Layout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/playlists" element={<Playlists />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </PlayerProvider>
+      <AppSettingsProvider>
+        <PlayerProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route element={<Layout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/library" element={<Library />} />
+                <Route path="/playlists" element={<Playlists />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </PlayerProvider>
+      </AppSettingsProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

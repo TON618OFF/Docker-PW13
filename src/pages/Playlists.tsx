@@ -9,10 +9,10 @@ import AddSongToPlaylistDialog from "@/components/AddSongToPlaylistDialog";
 
 interface Playlist {
   id: string;
-  name: string;
-  description: string | null;
+  playlist_title: string;
+  playlist_description: string | null;
   is_public: boolean;
-  cover_url: string | null;
+  playlist_cover_url: string | null;
   created_at: string;
   song_count?: number;
 }
@@ -42,7 +42,7 @@ const Playlists = () => {
       const playlistsWithCounts = await Promise.all(
         (data || []).map(async (playlist) => {
           const { count } = await supabase
-            .from("playlist_songs")
+            .from("playlist_tracks")
             .select("*", { count: "exact", head: true })
             .eq("playlist_id", playlist.id);
 
@@ -89,10 +89,10 @@ const Playlists = () => {
               className="group cursor-pointer hover:bg-card/80 transition-all overflow-hidden"
             >
               <div className="aspect-square bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 relative overflow-hidden">
-                {playlist.cover_url ? (
+                {playlist.playlist_cover_url ? (
                   <img
-                    src={playlist.cover_url}
-                    alt={playlist.name}
+                    src={playlist.playlist_cover_url}
+                    alt={playlist.playlist_title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
@@ -105,7 +105,7 @@ const Playlists = () => {
 
               <div className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-lg truncate">{playlist.name}</h3>
+                  <h3 className="font-semibold text-lg truncate">{playlist.playlist_title}</h3>
                   {playlist.is_public ? (
                     <Globe className="w-4 h-4 text-primary flex-shrink-0" />
                   ) : (
@@ -113,9 +113,9 @@ const Playlists = () => {
                   )}
                 </div>
 
-                {playlist.description && (
+                {playlist.playlist_description && (
                   <p className="text-sm text-muted-foreground line-clamp-2">
-                    {playlist.description}
+                    {playlist.playlist_description}
                   </p>
                 )}
 
@@ -126,7 +126,7 @@ const Playlists = () => {
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <AddSongToPlaylistDialog 
                       playlistId={playlist.id}
-                      playlistName={playlist.name}
+                      playlistName={playlist.playlist_title}
                       onSongAdded={fetchPlaylists}
                     />
                     <Button

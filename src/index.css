@@ -4,91 +4,117 @@
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
+Имперские цвета: чёрные, жёлтые, оранжевые, градиенты
 */
 
 @layer base {
   :root {
-    /* Music Player Dark Theme - Spotify inspired */
-    --background: 220 13% 7%;
+    /* Имперская тёмная тема */
+    --background: 0 0% 7%;
     --foreground: 0 0% 98%;
 
-    --card: 220 13% 9%;
+    --card: 0 0% 9%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 220 13% 9%;
+    --popover: 0 0% 9%;
     --popover-foreground: 0 0% 98%;
 
-    /* Spotify Green */
-    --primary: 142 76% 36%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 142 76% 50%;
+    /* Имперский жёлтый (золотой) */
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --primary-glow: 45 100% 60%;
 
-    /* Purple accent */
-    --secondary: 271 81% 64%;
+    /* Имперский оранжевый */
+    --secondary: 25 95% 53%;
     --secondary-foreground: 0 0% 100%;
 
-    /* Dark grays */
-    --muted: 220 13% 15%;
-    --muted-foreground: 217 10% 64%;
+    /* Тёмные серые */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
 
-    /* Pink accent */
-    --accent: 328 86% 70%;
+    /* Имперский акцент - тёмно-оранжевый */
+    --accent: 20 90% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 18%;
-    --input: 220 13% 15%;
-    --ring: 142 76% 36%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 45 100% 50%;
 
     --radius: 0.75rem;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 50%));
-    --gradient-accent: linear-gradient(135deg, hsl(271 81% 64%), hsl(328 86% 70%));
-    --gradient-dark: linear-gradient(180deg, hsl(220 13% 9%), hsl(220 13% 7%));
+    /* Имперские градиенты */
+    --gradient-primary: linear-gradient(135deg, hsl(45 100% 50%), hsl(25 95% 53%));
+    --gradient-accent: linear-gradient(135deg, hsl(25 95% 53%), hsl(20 90% 48%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 9%), hsl(0 0% 7%));
+    --gradient-imperial: linear-gradient(135deg, hsl(45 100% 50%), hsl(25 95% 53%), hsl(20 90% 48%));
 
-    /* Shadows */
-    --shadow-glow: 0 0 40px hsl(142 76% 50% / 0.3);
-    --shadow-card: 0 10px 30px -10px hsl(220 13% 0% / 0.5);
-    --shadow-player: 0 -10px 40px -10px hsl(142 76% 36% / 0.2);
+    /* Тени */
+    --shadow-glow: 0 0 40px hsl(45 100% 50% / 0.3);
+    --shadow-card: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
+    --shadow-player: 0 -10px 40px -10px hsl(45 100% 50% / 0.2);
 
-    /* Animations */
+    /* Анимации */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    /* Sidebar - matching dark theme */
-    --sidebar-background: 220 13% 9%;
+    /* Sidebar - имперская тема */
+    --sidebar-background: 0 0% 9%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 142 76% 36%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 13% 15%;
+    --sidebar-primary: 45 100% 50%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 220 13% 18%;
-    --sidebar-ring: 142 76% 36%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 45 100% 50%;
   }
 
   .dark {
-    --background: 220 13% 7%;
+    /* Имперская тёмная тема */
+    --background: 0 0% 7%;
     --foreground: 0 0% 98%;
-    --card: 220 13% 9%;
+    --card: 0 0% 9%;
     --card-foreground: 0 0% 98%;
-    --popover: 220 13% 9%;
+    --popover: 0 0% 9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 271 81% 64%;
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 25 95% 53%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 220 13% 15%;
-    --muted-foreground: 217 10% 64%;
-    --accent: 328 86% 70%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 20 90% 48%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 18%;
-    --input: 220 13% 15%;
-    --ring: 142 76% 36%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 45 100% 50%;
+  }
+
+  .light {
+    /* Имперская светлая тема */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 7%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 25 95% 53%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 20 90% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 96%;
+    --ring: 45 100% 50%;
   }
 }
 

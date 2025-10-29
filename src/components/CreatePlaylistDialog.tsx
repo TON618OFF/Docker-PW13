@@ -17,16 +17,21 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
+    playlist_title: "",
+    playlist_description: "",
     is_public: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim()) {
+    if (!formData.playlist_title.trim()) {
       toast.error("Название плейлиста обязательно");
+      return;
+    }
+
+    if (formData.playlist_title.length < 2 || formData.playlist_title.length > 100) {
+      toast.error("Название плейлиста должно быть от 2 до 100 символов");
       return;
     }
 
@@ -38,11 +43,14 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
         return;
       }
 
+      // Убеждаемся, что пользователь существует в public.users
+      await supabase.rpc('ensure_user_exists');
+
       const { error } = await supabase
         .from("playlists")
         .insert({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
+          playlist_title: formData.playlist_title.trim(),
+          playlist_description: formData.playlist_description.trim() || null,
           is_public: formData.is_public,
           user_id: user.id,
         });
@@ -50,7 +58,7 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
       if (error) throw error;
 
       toast.success("Плейлист создан успешно!");
-      setFormData({ name: "", description: "", is_public: false });
+      setFormData({ playlist_title: "", playlist_description: "", is_public: false });
       setOpen(false);
       onPlaylistCreated?.();
     } catch (error: any) {
@@ -78,22 +86,24 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Название *</Label>
+            <Label htmlFor="playlist_title">Название *</Label>
             <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              id="playlist_title"
+              value={formData.playlist_title}
+              onChange={(e) => setFormData({ ...formData, playlist_title: e.target.value })}
               placeholder="Введите название плейлиста"
               required
+              minLength={2}
+              maxLength={100}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Описание</Label>
+            <Label htmlFor="playlist_description">Описание</Label>
             <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              id="playlist_description"
+              value={formData.playlist_description}
+              onChange={(e) => setFormData({ ...formData, playlist_description: e.target.value })}
               placeholder="Описание плейлиста (необязательно)"
               rows={3}
             />

@@ -40,12 +40,31 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
     setLoadingSongs(true);
     try {
       const { data, error } = await supabase
-        .from("songs")
-        .select("id, title, artist, album, duration")
-        .order("title");
+        .from("tracks")
+        .select(`
+          id,
+          track_title,
+          track_duration,
+          album:albums(
+            album_title,
+            artist:artists(artist_name)
+          )
+        `)
+        .eq("is_public", true)
+        .order("track_title");
 
       if (error) throw error;
-      setSongs(data || []);
+      
+      // Преобразуем данные для удобства
+      const transformedSongs = (data || []).map(track => ({
+        id: track.id,
+        title: track.track_title,
+        artist: track.album?.artist?.artist_name || "Неизвестный артист",
+        album: track.album?.album_title || null,
+        duration: track.track_duration,
+      }));
+      
+      setSongs(transformedSongs);
     } catch (error: any) {
       toast.error(`Ошибка загрузки треков: ${error.message}`);
     } finally {
@@ -75,18 +94,36 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
         return;
       }
 
-      // Используем функцию из базы данных
-      const { data, error } = await supabase.rpc('add_song_to_playlist', {
-        _user_id: user.id,
-        _playlist_id: playlistId,
-        _song_id: selectedSongId
-      });
+      // Добавляем трек в плейлист
+      const { count: existingCount } = await supabase
+        .from("playlist_tracks")
+        .select("*", { count: "exact", head: true })
+        .eq("playlist_id", playlistId)
+        .eq("track_id", selectedSongId);
 
-      if (error) throw error;
-
-      if (data && !data.success) {
-        throw new Error(data.error || "Ошибка добавления трека");
+      if (existingCount && existingCount > 0) {
+        toast.error("Трек уже добавлен в плейлист");
+        return;
       }
+
+      // Получаем максимальный order_position
+      const { data: maxOrder } = await supabase
+        .from("playlist_tracks")
+        .select("order_position")
+        .eq("playlist_id", playlistId)
+        .order("order_position", { ascending: false })
+        .limit(1)
+        .single();
+
+      const nextOrder = maxOrder ? maxOrder.order_position + 1 : 1;
+
+      const { error } = await supabase
+        .from("playlist_tracks")
+        .insert({
+          playlist_id: playlistId,
+          track_id: selectedSongId,
+          order_position: nextOrder,
+        });
 
       toast.success("Трек добавлен в плейлист!");
       setSelectedSongId("");

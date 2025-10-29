@@ -373,6 +373,7 @@ const CreateAlbumDialog = ({
         artist_id: formData.artist_id,
         album_cover_url: formData.album_cover_url.trim() || null,
         album_description: formData.album_description.trim() || null,
+        is_public: true, // По умолчанию публичный
       });
 
       if (error) throw error;

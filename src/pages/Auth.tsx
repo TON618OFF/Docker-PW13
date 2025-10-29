@@ -12,7 +12,9 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -22,27 +24,104 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        
+        if (signInError) throw signInError;
+
+        // Убеждаемся, что пользователь существует в public.users
+        const user = signInData.user;
+        if (user) {
+          // Проверяем существование пользователя
+          const { data: userData } = await supabase
+            .from("users")
+            .select("id")
+            .eq("id", user.id)
+            .single();
+
+          // Если пользователя нет, создаём его
+          if (!userData) {
+            await supabase.rpc('ensure_user_exists');
+          } else {
+            // Обновляем last_login
+            await supabase
+              .from("users")
+              .update({ last_login: new Date().toISOString() })
+              .eq("id", user.id);
+          }
+        }
+        
         toast.success("Добро пожаловать!");
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signUp({
+        // Валидация username
+        if (!username.trim() || username.length < 3 || username.length > 50) {
+          toast.error("Имя пользователя должно быть от 3 до 50 символов");
+          setLoading(false);
+          return;
+        }
+
+        // Проверяем, существует ли username
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("username")
+          .eq("username", username.trim())
+          .single();
+
+        if (existingUser) {
+          toast.error("Имя пользователя уже занято");
+          setLoading(false);
+          return;
+        }
+
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
-              display_name: displayName || email.split("@")[0],
+              username: username.trim(),
+              first_name: firstName.trim() || null,
+              last_name: lastName.trim() || null,
             },
           },
         });
-        if (error) throw error;
-        toast.success("Регистрация успешна! Вход выполнен.");
-        navigate("/");
+        
+        if (signUpError) throw signUpError;
+
+        if (!authData.user) {
+          throw new Error("Не удалось создать пользователя");
+        }
+
+        // Пытаемся создать пользователя в public.users
+        // Используем create_user_profile для явного создания с метаданными
+        const { data: createResult, error: createError } = await supabase.rpc('create_user_profile', {
+          p_user_id: authData.user.id,
+          p_username: username.trim(),
+          p_first_name: firstName.trim() || null,
+          p_last_name: lastName.trim() || null,
+        });
+
+        if (createError) {
+          console.error("Ошибка create_user_profile:", createError);
+          // Пробуем через ensure_user_exists как запасной вариант
+          await supabase.rpc('ensure_user_exists');
+        } else if (createResult?.success) {
+          console.log("Пользователь создан:", createResult);
+        }
+
+        toast.success("Регистрация успешна! Проверьте email для подтверждения.");
+        
+        // Если email подтверждение не требуется, сразу входим
+        if (authData.session) {
+          navigate("/");
+        } else {
+          // Ждём подтверждения email
+          toast.info("Пожалуйста, подтвердите email для входа. После подтверждения вы сможете войти.");
+          // Не перенаправляем, пользователь останется на странице входа
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Ошибка аутентификации");
@@ -68,17 +147,44 @@ const Auth = () => {
 
         <form onSubmit={handleAuth} className="space-y-4">
           {!isLogin && (
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Имя</Label>
-              <Input
-                id="displayName"
-                type="text"
-                placeholder="Введите имя"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="bg-input border-border"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="username">Имя пользователя *</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="username (3-50 символов)"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  minLength={3}
+                  maxLength={50}
+                  className="bg-input border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Имя</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="Введите имя"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="bg-input border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Фамилия</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Введите фамилию"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="bg-input border-border"
+                />
+              </div>
+            </>
           )}
 
           <div className="space-y-2">
