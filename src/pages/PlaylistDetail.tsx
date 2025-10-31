@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Music, ArrowLeft, Play, Clock, Trash2 } from "lucide-react";
+import { Music, ArrowLeft, Play, Clock, Trash2, Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { usePlayer } from "@/contexts/PlayerContext";
 import type { Track } from "@/types";
@@ -18,6 +18,7 @@ const PlaylistDetail = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [totalPlays, setTotalPlays] = useState(0);
 
   useEffect(() => {
     const initUser = async () => {
@@ -48,7 +49,7 @@ const PlaylistDetail = () => {
 
       // Проверяем доступ
       if (!playlistData.is_public && playlistData.user_id !== user.id) {
-        toast.error("У вас нет доступа к этому плейлисту");
+        toast.error(t('playlistDetail.noAccess'));
         navigate("/playlists");
         return;
       }
@@ -59,7 +60,7 @@ const PlaylistDetail = () => {
       const { data: tracksData, error: tracksError } = await supabase
         .from("playlist_tracks")
         .select(`
-          track_order,
+          order_position,
           track:tracks(
             id,
             track_title,
@@ -88,7 +89,7 @@ const PlaylistDetail = () => {
           )
         `)
         .eq("playlist_id", id)
-        .order("track_order", { ascending: true });
+        .order("order_position", { ascending: true });
 
       if (tracksError) throw tracksError;
 
@@ -99,29 +100,47 @@ const PlaylistDetail = () => {
         }))
         .filter((track: any) => track.id); // Фильтруем удаленные треки
 
+      // Подсчитываем общее количество проигрываний
+      const total = transformedTracks.reduce((sum, track) => sum + (track.track_play_count || 0), 0);
+      setTotalPlays(total);
+
       setTracks(transformedTracks);
       setPlaylist(transformedTracks);
     } catch (error: any) {
-      toast.error(`Ошибка загрузки плейлиста: ${error.message}`);
+      toast.error(`${t('playlistDetail.loadError')}: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const handlePlayTrack = (track: Track) => {
     playTrack(track);
   };
 
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   const handlePlayAll = () => {
     if (tracks.length > 0) {
       playTrack(tracks[0]);
-      toast.success(`Начинаем прослушивание ${tracks.length} треков`);
+      toast.success(t('index.startingPlayback').replace('{count}', tracks.length.toString()));
+    }
+  };
+
+  const handleShuffle = () => {
+    if (tracks.length > 0) {
+      const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+      playTrack(shuffled[0]);
+      setPlaylist(shuffled);
+      toast.success(t('index.startingPlayback').replace('{count}', tracks.length.toString()));
     }
   };
 
@@ -137,10 +156,10 @@ const PlaylistDetail = () => {
 
       if (error) throw error;
 
-      toast.success("Трек удален из плейлиста");
+      toast.success(t('playlists.detail.removeFromPlaylist'));
       fetchPlaylistData();
     } catch (error: any) {
-      toast.error(`Ошибка удаления трека: ${error.message}`);
+      toast.error(t('playlists.detail.errorDeleteTrack', { message: error.message }));
     }
   };
 
@@ -155,8 +174,8 @@ const PlaylistDetail = () => {
   if (!playlist) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold mb-4">Плейлист не найден</h2>
-        <Button onClick={() => navigate("/playlists")}>Вернуться к плейлистам</Button>
+        <h2 className="text-2xl font-bold mb-4">{t('playlists.detail.notFound')}</h2>
+        <Button onClick={() => navigate("/playlists")}>{t('playlists.detail.back')}</Button>
       </div>
     );
   }
@@ -166,7 +185,7 @@ const PlaylistDetail = () => {
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => navigate("/playlists")}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Назад
+          {t('playlists.detail.back')}
         </Button>
       </div>
 
@@ -190,17 +209,36 @@ const PlaylistDetail = () => {
             {playlist.playlist_description && (
               <p className="text-muted-foreground mb-4">{playlist.playlist_description}</p>
             )}
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-              <span>{tracks.length} {tracks.length === 1 ? "трек" : "треков"}</span>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
+              <div className="flex items-center gap-2">
+                <Music className="w-4 h-4" />
+                <span>{tracks.length} {t('playlists.detail.tracksCount')}</span>
+              </div>
               <span>•</span>
-              <span>
-                {Math.floor(tracks.reduce((sum, t) => sum + t.track_duration, 0) / 60)} минут
-              </span>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span>{formatDuration(tracks.reduce((sum, t) => sum + t.track_duration, 0))}</span>
+              </div>
+              {totalPlays > 0 && (
+                <>
+                  <span>•</span>
+                  <div className="flex items-center gap-2">
+                    <Play className="w-4 h-4" />
+                    <span>{totalPlays} {t('playlists.detail.totalPlays')}</span>
+                  </div>
+                </>
+              )}
             </div>
-            <Button onClick={handlePlayAll} className="gap-2">
-              <Play className="w-4 h-4" />
-              Играть все
-            </Button>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={handlePlayAll} className="gap-2 bg-primary hover:bg-primary/90" disabled={tracks.length === 0}>
+                <Play className="w-4 h-4" />
+                {t('playlists.detail.playAll')}
+              </Button>
+              <Button onClick={handleShuffle} variant="outline" className="gap-2" disabled={tracks.length === 0}>
+                <Shuffle className="w-4 h-4" />
+                {t('playlists.detail.shuffle')}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
@@ -209,9 +247,9 @@ const PlaylistDetail = () => {
       {tracks.length === 0 ? (
         <Card className="p-12 text-center bg-card/50 backdrop-blur">
           <Music className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Плейлист пуст</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('playlists.detail.empty')}</h3>
           <p className="text-muted-foreground mb-6">
-            Добавьте треки в этот плейлист
+            {t('playlists.detail.addTracks')}
           </p>
         </Card>
       ) : (
@@ -259,7 +297,7 @@ const PlaylistDetail = () => {
                     variant="ghost"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm("Удалить трек из плейлиста?")) {
+                      if (confirm(t('playlists.detail.confirmRemove'))) {
                         handleRemoveTrack(track.id);
                       }
                     }}

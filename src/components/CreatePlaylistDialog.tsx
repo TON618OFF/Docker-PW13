@@ -9,12 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Plus, Music } from "lucide-react";
 import ImageUpload from "./ImageUpload";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface CreatePlaylistDialogProps {
   onPlaylistCreated?: () => void;
 }
 
 const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,12 +30,12 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
     e.preventDefault();
     
     if (!formData.playlist_title.trim()) {
-      toast.error("Название плейлиста обязательно");
+      toast.error(t('playlists.name') + ' ' + t('common.confirm'));
       return;
     }
 
     if (formData.playlist_title.length < 2 || formData.playlist_title.length > 100) {
-      toast.error("Название плейлиста должно быть от 2 до 100 символов");
+      toast.error(t('playlists.name') + ' должно быть от 2 до 100 символов');
       return;
     }
 
@@ -41,7 +43,7 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
-        toast.error("Необходимо войти в систему");
+        toast.error(t('playlist.create.loginRequired'));
         return;
       }
 
@@ -60,12 +62,12 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
 
       if (error) throw error;
 
-      toast.success("Плейлист создан успешно!");
+      toast.success(t('messages.created'));
       setFormData({ playlist_title: "", playlist_description: "", playlist_cover_url: "", is_public: false });
       setOpen(false);
       onPlaylistCreated?.();
     } catch (error: any) {
-      toast.error(`Ошибка создания плейлиста: ${error.message}`);
+      toast.error(`${t('playlist.create.error')}: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -76,25 +78,25 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
       <DialogTrigger asChild>
         <Button className="gap-2 bg-primary hover:bg-primary/90">
           <Plus className="w-4 h-4" />
-          Создать плейлист
+          {t('playlists.create')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Music className="w-5 h-5" />
-            Создать новый плейлист
+            {t('playlists.createNew')}
           </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="playlist_title">Название *</Label>
+            <Label htmlFor="playlist_title">{t('playlists.name')} *</Label>
             <Input
               id="playlist_title"
               value={formData.playlist_title}
               onChange={(e) => setFormData({ ...formData, playlist_title: e.target.value })}
-              placeholder="Введите название плейлиста"
+              placeholder={t('playlists.name')}
               required
               minLength={2}
               maxLength={100}
@@ -102,12 +104,12 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="playlist_description">Описание</Label>
+            <Label htmlFor="playlist_description">{t('playlists.description')}</Label>
             <Textarea
               id="playlist_description"
               value={formData.playlist_description}
               onChange={(e) => setFormData({ ...formData, playlist_description: e.target.value })}
-              placeholder="Описание плейлиста (необязательно)"
+              placeholder={t('playlists.description')}
               rows={3}
             />
           </div>
@@ -121,7 +123,7 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
           />
 
           <div className="flex items-center justify-between">
-            <Label htmlFor="is_public">Публичный плейлист</Label>
+            <Label htmlFor="is_public">{t('playlists.public')}</Label>
             <Switch
               id="is_public"
               checked={formData.is_public}
@@ -136,14 +138,14 @@ const CreatePlaylistDialog = ({ onPlaylistCreated }: CreatePlaylistDialogProps) 
               onClick={() => setOpen(false)}
               className="flex-1"
             >
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={loading}
               className="flex-1"
             >
-              {loading ? "Создание..." : "Создать"}
+              {loading ? t('common.loading') : t('common.create')}
             </Button>
           </div>
         </form>

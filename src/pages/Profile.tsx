@@ -9,9 +9,14 @@ import { toast } from "sonner";
 import { User, Save, Mail, Calendar, Clock, Award, Music2, Heart, Edit } from "lucide-react";
 import ImageUpload from "@/components/ImageUpload";
 import { Badge } from "@/components/ui/badge";
+import BecomeArtistForm from "@/components/BecomeArtistForm";
+import { useRole } from "@/hooks/useRole";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { isListener } = useRole();
+  const { t } = useTranslation();
   const [profile, setProfile] = useState({
     username: "",
     first_name: "",
@@ -109,7 +114,7 @@ const Profile = () => {
       if (!user) return;
 
       if (profile.username && profile.username.length < 3) {
-        toast.error("Имя пользователя должно быть минимум 3 символа");
+        toast.error(t('profile.usernameMinLength'));
         setSaving(false);
         return;
       }
@@ -127,9 +132,9 @@ const Profile = () => {
 
       if (error) throw error;
 
-      toast.success("Профиль сохранён");
+      toast.success(t('profile.saveSuccess'));
     } catch (error: any) {
-      toast.error(`Ошибка сохранения профиля: ${error.message}`);
+      toast.error(t('profile.errorSave', { message: error.message }));
     } finally {
       setSaving(false);
     }
@@ -162,7 +167,7 @@ const Profile = () => {
             )}
             <div className="absolute -bottom-2 -right-2">
               <Badge className="bg-primary text-primary-foreground shadow-lg">
-                {profile.role_name || "Пользователь"}
+                {profile.role_name || t('profile.user')}
               </Badge>
             </div>
           </div>
@@ -185,13 +190,13 @@ const Profile = () => {
               {profile.created_at && (
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  <span>Регистрация: {new Date(profile.created_at).toLocaleDateString("ru-RU")}</span>
+                  <span>{t('profile.registration')}: {new Date(profile.created_at).toLocaleDateString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US")}</span>
                 </div>
               )}
               {profile.last_login && (
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4" />
-                  <span>Последний вход: {new Date(profile.last_login).toLocaleDateString("ru-RU")}</span>
+                  <span>{t('profile.lastLogin')}: {new Date(profile.last_login).toLocaleDateString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US")}</span>
                 </div>
               )}
             </div>
@@ -204,7 +209,7 @@ const Profile = () => {
         <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:scale-105 transition-transform">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Мои треки</p>
+              <p className="text-sm text-muted-foreground">{t('profile.myTracks')}</p>
               <p className="text-3xl font-bold text-primary mt-1">{stats.tracksCount}</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -216,7 +221,7 @@ const Profile = () => {
         <Card className="p-6 bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20 hover:scale-105 transition-transform">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Мои плейлисты</p>
+              <p className="text-sm text-muted-foreground">{t('profile.myPlaylists')}</p>
               <p className="text-3xl font-bold text-secondary mt-1">{stats.playlistsCount}</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center">
@@ -228,7 +233,7 @@ const Profile = () => {
         <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20 hover:scale-105 transition-transform">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">В избранном</p>
+              <p className="text-sm text-muted-foreground">{t('profile.favorites')}</p>
               <p className="text-3xl font-bold text-accent mt-1">{stats.favoritesCount}</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
@@ -243,25 +248,25 @@ const Profile = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Edit className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold">Редактировать профиль</h2>
+            <h2 className="text-xl font-semibold">{t('profile.edit')}</h2>
           </div>
           <Button
             onClick={() => navigate("/settings")}
             variant="outline"
             size="sm"
           >
-            Все настройки
+            {t('settings.title')}
           </Button>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Имя пользователя *</Label>
+            <Label htmlFor="username">{t('profile.username')} {t('common.required')}</Label>
             <Input
               id="username"
               value={profile.username}
               onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-              placeholder="username"
+              placeholder={t('profile.username')}
               required
               minLength={3}
               maxLength={50}
@@ -271,34 +276,34 @@ const Profile = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="first_name">Имя</Label>
+              <Label htmlFor="first_name">{t('profile.firstName')}</Label>
               <Input
                 id="first_name"
                 value={profile.first_name}
                 onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                placeholder="Имя"
+                placeholder={t('profile.firstNamePlaceholder')}
                 className="bg-input border-border"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">Фамилия</Label>
+              <Label htmlFor="last_name">{t('profile.lastName')}</Label>
               <Input
                 id="last_name"
                 value={profile.last_name}
                 onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
-                placeholder="Фамилия"
+                placeholder={t('profile.lastNamePlaceholder')}
                 className="bg-input border-border"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="bio">О себе</Label>
+            <Label htmlFor="bio">{t('profile.bio')}</Label>
             <textarea
               id="bio"
               value={profile.bio}
               onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-              placeholder="Расскажите о себе..."
+              placeholder={t('profile.bioPlaceholder')}
               rows={4}
               className="w-full px-3 py-2 border border-border rounded-md bg-input"
             />
@@ -322,9 +327,14 @@ const Profile = () => {
           className="w-full gap-2 bg-primary hover:bg-primary/90"
         >
           <Save className="w-4 h-4" />
-          {saving ? "Сохранение..." : "Сохранить изменения"}
+          {saving ? t('profile.saving') : t('profile.save')}
         </Button>
       </Card>
+
+      {/* Become Artist Section */}
+      {isListener && (
+        <BecomeArtistForm />
+      )}
     </div>
   );
 };

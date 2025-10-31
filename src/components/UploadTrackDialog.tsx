@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Upload, Music, FileAudio } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface UploadTrackDialogProps {
   onTrackUploaded?: () => void;
 }
 
 const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
+  const { isDistributor, isArtist } = useRole();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -67,36 +71,34 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
         return;
       }
 
-      // Получаем альбомы артиста
-      const { data: albumsData } = await supabase
+      // Для дистрибьютора - показываем все альбомы артиста
+      // Для артиста - показываем только альбомы, которые он создал
+      let query = supabase
         .from("albums")
         .select(`
           id, 
           album_title, 
           artist_id,
-          tracks:tracks(id, uploaded_by)
+          created_by
         `)
         .eq("artist_id", artistId)
-        .order("album_title");
+        .eq("is_active", true);
+
+      // Если пользователь артист, фильтруем только его альбомы
+      if (isArtist && !isDistributor) {
+        query = query.eq("created_by", user.id);
+      }
+
+      const { data: albumsData, error } = await query.order("album_title");
+
+      if (error) throw error;
       
       if (!albumsData) {
         setAlbums([]);
         return;
       }
 
-      // Фильтруем альбомы:
-      // 1. Альбомы, где у пользователя уже есть треки (владелец альбома)
-      // 2. Пустые альбомы (можно добавить первый трек)
-      const filteredAlbums = albumsData.filter(album => {
-        if (!album.tracks || album.tracks.length === 0) {
-          // Пустой альбом - можно добавить трек
-          return true;
-        }
-        // Проверяем, есть ли хотя бы один трек текущего пользователя
-        return album.tracks.some((track: any) => track.uploaded_by === user.id);
-      });
-
-      setAlbums(filteredAlbums.map(album => ({
+      setAlbums(albumsData.map(album => ({
         id: album.id,
         album_title: album.album_title,
         artist_id: album.artist_id
@@ -113,13 +115,13 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
       // Проверяем формат файла
       const extension = file.name.split('.').pop()?.toLowerCase();
       if (!audioFormats.some(format => format.value === extension)) {
-        toast.error("Неподдерживаемый формат файла");
+        toast.error(t('upload.error.fileFormat'));
         return;
       }
 
       // Проверяем размер файла (50MB)
       if (file.size > 50 * 1024 * 1024) {
-        toast.error("Файл слишком большой (максимум 50MB)");
+        toast.error(t('upload.error.fileSize'));
         return;
       }
 
@@ -146,7 +148,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
     e.preventDefault();
     
     if (!formData.file || !formData.track_title.trim() || !formData.artist_id || !formData.album_id) {
-      toast.error("Заполните все обязательные поля");
+      toast.error(t('upload.error.required'));
       return;
     }
 
@@ -156,7 +158,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
-        toast.error("Необходимо войти в систему");
+        toast.error(t('upload.error.loginRequired'));
         return;
       }
 
@@ -201,7 +203,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
       
       if (ensureUserError) {
         console.error("Ошибка создания пользователя:", ensureUserError);
-        toast.error("Ошибка создания профиля пользователя");
+        toast.error(t('upload.error.userProfile'));
         return;
       }
 
@@ -229,7 +231,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
         });
       }
 
-      toast.success("Трек успешно добавлен!");
+      toast.success(t('upload.success'));
       setFormData({ track_title: "", artist_id: "", album_id: "", genre_id: "", file: null });
       setUploadProgress(0);
       setOpen(false);
@@ -246,14 +248,14 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
       <DialogTrigger asChild>
         <Button className="gap-2 bg-primary hover:bg-primary/90">
           <Upload className="w-4 h-4" />
-          Загрузить треки
+          {t('upload.title')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Music className="w-5 h-5" />
-            Загрузить новый трек
+            {t('upload.title')}
           </DialogTitle>
         </DialogHeader>
         
@@ -315,21 +317,21 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
 
           {/* Метаданные */}
           <div className="space-y-2">
-            <Label htmlFor="track_title">Название трека *</Label>
+            <Label htmlFor="track_title">{t('upload.trackTitle')} {t('common.required')}</Label>
             <Input
               id="track_title"
               value={formData.track_title}
               onChange={(e) => setFormData({ ...formData, track_title: e.target.value })}
-              placeholder="Название трека"
+              placeholder={t('upload.placeholder.trackTitle')}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="artist">Исполнитель *</Label>
+            <Label htmlFor="artist">{t('upload.selectTrack')} {t('common.required')}</Label>
             <Select value={formData.artist_id} onValueChange={handleArtistChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Выберите исполнителя" />
+                <SelectValue placeholder={t('upload.placeholder.selectArtist')} />
               </SelectTrigger>
               <SelectContent>
                 {artists.map((artist) => (
@@ -349,7 +351,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
               disabled={!formData.artist_id}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Выберите альбом" />
+                <SelectValue placeholder={t('upload.placeholder.selectAlbum')} />
               </SelectTrigger>
               <SelectContent>
                 {albums.map((album) => (
@@ -368,7 +370,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
               onValueChange={(value) => setFormData({ ...formData, genre_id: value })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Выберите жанр (необязательно)" />
+                <SelectValue placeholder={t('upload.placeholder.selectGenre')} />
               </SelectTrigger>
               <SelectContent>
                 {genres.map((genre) => (
@@ -394,7 +396,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
               disabled={loading || !formData.file}
               className="flex-1"
             >
-              {loading ? "Загрузка..." : "Загрузить"}
+              {loading ? t('upload.uploading') : t('upload.upload')}
             </Button>
           </div>
         </form>

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Music, Search } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Song {
   id: string;
@@ -23,6 +24,7 @@ interface AddSongToPlaylistDialogProps {
 }
 
 const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddSongToPlaylistDialogProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [songs, setSongs] = useState<Song[]>([]);
@@ -59,7 +61,7 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
       const transformedSongs = (data || []).map(track => ({
         id: track.id,
         title: track.track_title,
-        artist: track.album?.artist?.artist_name || "Неизвестный артист",
+        artist: track.album?.artist?.artist_name || t('addSong.unknownArtist'),
         album: track.album?.album_title || null,
         duration: track.track_duration,
       }));
@@ -82,7 +84,7 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
     e.preventDefault();
     
     if (!selectedSongId) {
-      toast.error("Выберите трек");
+      toast.error(t('addSong.error.selectTrack'));
       return;
     }
 
@@ -90,7 +92,7 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
-        toast.error("Необходимо войти в систему");
+        toast.error(t('addSong.error.loginRequired'));
         return;
       }
 
@@ -102,7 +104,7 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
         .eq("track_id", selectedSongId);
 
       if (existingCount && existingCount > 0) {
-        toast.error("Трек уже добавлен в плейлист");
+        toast.error(t('addSong.error.alreadyAdded'));
         return;
       }
 
@@ -125,13 +127,13 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
           order_position: nextOrder,
         });
 
-      toast.success("Трек добавлен в плейлист!");
+      toast.success(t('addSong.success'));
       setSelectedSongId("");
       setSearchQuery("");
       setOpen(false);
       onSongAdded?.();
     } catch (error: any) {
-      toast.error(`Ошибка добавления трека: ${error.message}`);
+      toast.error(`${t('addSong.error.add')}: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -168,28 +170,28 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
                 id="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск по названию, исполнителю или альбому..."
+                placeholder={t('addSong.searchPlaceholder')}
                 className="pl-10"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="song">Выберите трек *</Label>
+            <Label htmlFor="song">{t('addSong.selectTrack')} {t('common.required')}</Label>
             {loadingSongs ? (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mx-auto"></div>
-                <p className="text-sm text-muted-foreground mt-2">Загрузка треков...</p>
+                <p className="text-sm text-muted-foreground mt-2">{t('addSong.loadingTracks')}</p>
               </div>
             ) : (
               <Select value={selectedSongId} onValueChange={setSelectedSongId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите трек для добавления" />
+                  <SelectValue placeholder={t('addSong.selectTrackPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
                   {filteredSongs.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">
-                      {searchQuery ? "Треки не найдены" : "Нет доступных треков"}
+                      {searchQuery ? t('addSong.emptySearch') : t('addSong.empty')}
                     </div>
                   ) : (
                     filteredSongs.map((song) => (
@@ -228,7 +230,7 @@ const AddSongToPlaylistDialog = ({ playlistId, playlistName, onSongAdded }: AddS
               disabled={loading || !selectedSongId}
               className="flex-1"
             >
-              {loading ? "Добавление..." : "Добавить"}
+              {loading ? t('addSong.adding') : t('addSong.add')}
             </Button>
           </div>
         </form>

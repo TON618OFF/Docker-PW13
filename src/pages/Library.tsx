@@ -7,19 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Music, Play, Clock, Upload, Search, Heart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import UploadTrackDialog from "@/components/UploadTrackDialog";
-import ArtistsAlbumsManager from "@/components/ArtistsAlbumsManager";
+import ArtistsManager from "@/components/ArtistsManager";
 import AlbumsManager from "@/components/AlbumsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePlayer } from "@/contexts/PlayerContext";
 import type { Track } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useRole } from "@/hooks/useRole";
 
 const Library = () => {
   const { t } = useTranslation();
+  const { canManageContent } = useRole();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"created_at" | "track_title" | "track_play_count" | "track_like_count">("created_at");
+  const [sortBy, setSortBy] = useState<"created_at" | "track_title" | "track_play_count">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [favoriteTrackIds, setFavoriteTrackIds] = useState<Set<string>>(new Set());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -99,7 +101,7 @@ const Library = () => {
       setTracks(transformedTracks);
       setPlaylist(transformedTracks);
     } catch (error: any) {
-      toast.error("Ошибка загрузки библиотеки");
+      toast.error(t('library.errorLoad'));
     } finally {
       setLoading(false);
     }
@@ -157,13 +159,13 @@ const Library = () => {
           <h1 className="text-3xl font-bold mb-2">{t("library.title")}</h1>
           <p className="text-muted-foreground">{tracks.length} {t("library.tracks").toLowerCase()}</p>
         </div>
-        <UploadTrackDialog onTrackUploaded={fetchTracks} />
+        {canManageContent && <UploadTrackDialog onTrackUploaded={fetchTracks} />}
       </div>
 
         <Tabs defaultValue="tracks" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="tracks">{t("library.tracks")}</TabsTrigger>
-            <TabsTrigger value="artists-albums">{t("library.artistsAlbums")}</TabsTrigger>
+            <TabsTrigger value="artists">Артисты</TabsTrigger>
             <TabsTrigger value="albums">{t("library.albums")}</TabsTrigger>
           </TabsList>
         
@@ -188,7 +190,6 @@ const Library = () => {
               <SelectItem value="created_at">{t("library.sortByDate")}</SelectItem>
               <SelectItem value="track_title">{t("library.sortByTitle")}</SelectItem>
               <SelectItem value="track_play_count">{t("library.sortByPlays")}</SelectItem>
-              <SelectItem value="track_like_count">{t("library.sortByLikes")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortOrder} onValueChange={(value: any) => setSortOrder(value)}>
@@ -219,7 +220,7 @@ const Library = () => {
               ? t("library.emptyMessage")
               : t("library.uploadFirst")}
           </p>
-          {!searchQuery && (
+          {!searchQuery && canManageContent && (
                 <UploadTrackDialog onTrackUploaded={fetchTracks} />
           )}
         </Card>
@@ -292,7 +293,7 @@ const Library = () => {
                           }`} 
                         />
                       </Button>
-                      {currentUserId && track.uploaded_by === currentUserId && (
+                      {canManageContent && currentUserId && track.uploaded_by === currentUserId && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -305,9 +306,9 @@ const Library = () => {
                                 .eq("id", track.id);
                               
                               if (error) {
-                                toast.error("Ошибка удаления трека");
+                                toast.error(t('library.errorDeleteTrack'));
                               } else {
-                                toast.success("Трек удалён");
+                                toast.success(t('library.deleteSuccess'));
                                 fetchTracks();
                               }
                             }
@@ -325,8 +326,8 @@ const Library = () => {
       )}
         </TabsContent>
 
-        <TabsContent value="artists-albums">
-          <ArtistsAlbumsManager />
+        <TabsContent value="artists">
+          <ArtistsManager />
         </TabsContent>
 
         <TabsContent value="albums">

@@ -7,6 +7,7 @@ import { ListMusic, Plus, Music, Lock, Globe, Trash2, Heart } from "lucide-react
 import { toast } from "sonner";
 import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import AddSongToPlaylistDialog from "@/components/AddSongToPlaylistDialog";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Playlist {
   id: string;
@@ -15,16 +16,30 @@ interface Playlist {
   is_public: boolean;
   playlist_cover_url: string | null;
   created_at: string;
+  user_id: string;
   song_count?: number;
+  user?: {
+    id: string;
+    username: string;
+  };
 }
 
 const Playlists = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritePlaylistIds, setFavoritePlaylistIds] = useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    const initUser = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    initUser();
     fetchPlaylists();
     fetchFavoritePlaylists();
   }, []);
@@ -63,7 +78,7 @@ const Playlists = () => {
       }
       setFavoritePlaylistIds(newFavorites);
       
-      toast.success(data.action === "added" ? "Плейлист добавлен в избранное" : "Плейлист удалён из избранного");
+      toast.success(data.action === "added" ? t('messages.addedToFavorites') : t('messages.removedFromFavorites'));
     } catch (error: any) {
       toast.error(`Ошибка: ${error.message}`);
     }
@@ -74,10 +89,18 @@ const Playlists = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
+      // Получаем все публичные плейлисты и свои
       const { data, error } = await supabase
         .from("playlists")
-        .select("*")
-        .eq("user_id", user.id)
+        .select(`
+          *,
+          user:users(
+            id,
+            username
+          )
+        `)
+        .or(`is_public.eq.true,user_id.eq.${user.id}`)
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -96,7 +119,7 @@ const Playlists = () => {
 
       setPlaylists(playlistsWithCounts);
     } catch (error: any) {
-      toast.error("Ошибка загрузки плейлистов");
+      toast.error(t('playlists.loadError'));
     } finally {
       setLoading(false);
     }
@@ -106,8 +129,8 @@ const Playlists = () => {
     <div className="space-y-6 pb-24 md:pb-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Плейлисты</h1>
-          <p className="text-muted-foreground">{playlists.length} плейлистов</p>
+          <h1 className="text-3xl font-bold mb-2">{t('playlists.title')}</h1>
+          <p className="text-muted-foreground">{playlists.length} {t('playlists.title')}</p>
         </div>
         <CreatePlaylistDialog onPlaylistCreated={fetchPlaylists} />
       </div>
@@ -119,9 +142,9 @@ const Playlists = () => {
       ) : playlists.length === 0 ? (
         <Card className="p-12 text-center bg-card/50 backdrop-blur">
           <ListMusic className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Нет плейлистов</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('playlists.empty')}</h3>
           <p className="text-muted-foreground mb-6">
-            Создайте свой первый плейлист
+            {t('playlists.createNew')}
           </p>
           <CreatePlaylistDialog onPlaylistCreated={fetchPlaylists} />
         </Card>
@@ -165,18 +188,27 @@ const Playlists = () => {
                 )}
 
                 <div className="flex items-center justify-between pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    {playlist.song_count} {playlist.song_count === 1 ? "трек" : "треков"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      {playlist.song_count} {playlist.song_count === 1 ? 'трек' : t('playlists.tracks')}
+                    </p>
+                    {playlist.user && playlist.user_id !== currentUserId && (
+                      <span className="text-xs text-muted-foreground">
+                        • {playlist.user.username}
+                      </span>
+                    )}
+                  </div>
                   <div 
                     className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <AddSongToPlaylistDialog 
-                      playlistId={playlist.id}
-                      playlistName={playlist.playlist_title}
-                      onSongAdded={fetchPlaylists}
-                    />
+                    {currentUserId && playlist.user_id === currentUserId && (
+                      <AddSongToPlaylistDialog 
+                        playlistId={playlist.id}
+                        playlistName={playlist.playlist_title}
+                        onSongAdded={fetchPlaylists}
+                      />
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -194,29 +226,31 @@ const Playlists = () => {
                         }`} 
                       />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (confirm("Вы уверены, что хотите удалить этот плейлист?")) {
-                          const { error } = await supabase
-                            .from("playlists")
-                            .delete()
-                            .eq("id", playlist.id);
-                          
-                          if (error) {
-                            toast.error("Ошибка удаления плейлиста");
-                          } else {
-                            toast.success("Плейлист удалён");
-                            fetchPlaylists();
+                    {currentUserId && playlist.user_id === currentUserId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm(t('playlists.confirmRemove'))) {
+                            const { error } = await supabase
+                              .from("playlists")
+                              .delete()
+                              .eq("id", playlist.id);
+                            
+                            if (error) {
+                              toast.error(t('messages.error'));
+                            } else {
+                              toast.success(t('messages.deleted'));
+                              fetchPlaylists();
+                            }
                           }
-                        }
-                      }}
-                      className="hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                        }}
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

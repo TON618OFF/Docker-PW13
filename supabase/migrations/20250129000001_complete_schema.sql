@@ -35,6 +35,8 @@ DROP TABLE IF EXISTS public.favorites_albums CASCADE;
 
 DROP TABLE IF EXISTS public.favorites_playlists CASCADE;
 
+DROP TABLE IF EXISTS public.artist_applications CASCADE;
+
 DROP TABLE IF EXISTS public.audit_log CASCADE;
 
 DROP TABLE IF EXISTS public.listening_history CASCADE;
@@ -85,6 +87,10 @@ DROP FUNCTION IF EXISTS public.update_updated_at_column () CASCADE;
 
 DROP FUNCTION IF EXISTS public.handle_new_user () CASCADE;
 
+DROP FUNCTION IF EXISTS public.approve_artist_application (UUID) CASCADE;
+
+DROP FUNCTION IF EXISTS public.reject_artist_application (UUID, TEXT) CASCADE;
+
 -- Удаляем типы
 DROP TYPE IF EXISTS public.audio_format CASCADE;
 
@@ -121,9 +127,9 @@ CREATE TABLE public.roles (
     CHECK (
         role_name IN (
             'слушатель',
+            'дистрибьютор',
             'администратор',
             'артист',
-            'дистрибьютор',
             'модератор'
         )
     )
@@ -157,6 +163,7 @@ CREATE TABLE public.artists (
     artist_bio TEXT,
     artist_image_url TEXT,
     genre VARCHAR(50),
+    user_id UUID REFERENCES public.users (id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (
@@ -185,6 +192,7 @@ CREATE TABLE public.albums (
     album_title VARCHAR(100) NOT NULL,
     album_release_date DATE NOT NULL,
     artist_id UUID REFERENCES public.artists (id) ON DELETE CASCADE,
+    created_by UUID REFERENCES public.users (id) ON DELETE SET NULL,
     album_cover_url TEXT,
     album_description TEXT,
     is_public BOOLEAN NOT NULL DEFAULT TRUE,
@@ -307,7 +315,8 @@ CREATE TABLE public.audit_log (
             'track_genres',
             'playlist_tracks',
             'listening_history',
-            'genres'
+            'genres',
+            'artist_applications'
         )
     )
 );
@@ -339,6 +348,36 @@ CREATE TABLE public.favorites_playlists (
     UNIQUE (user_id, playlist_id)
 );
 
+-- Таблица анкет для становления артистом
+CREATE TABLE public.artist_applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
+    user_id UUID REFERENCES public.users (id) ON DELETE CASCADE NOT NULL,
+    artist_name VARCHAR(100) NOT NULL,
+    artist_bio TEXT,
+    artist_image_url TEXT,
+    genre VARCHAR(50),
+    portfolio_url TEXT,
+    social_media_urls JSONB,
+    motivation TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    reviewed_by UUID REFERENCES public.users (id) ON DELETE SET NULL,
+    review_comment TEXT,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (
+        LENGTH(artist_name) >= 2
+        AND LENGTH(artist_name) <= 100
+    ),
+    CHECK (
+        status IN (
+            'pending',
+            'approved',
+            'rejected'
+        )
+    )
+);
+
 -- =================================================================================================
 -- 3. СОЗДАНИЕ ИНДЕКСОВ
 -- =================================================================================================
@@ -362,6 +401,12 @@ CREATE INDEX idx_tracks_created_at ON public.tracks (created_at);
 CREATE INDEX idx_tracks_is_public ON public.tracks (is_public);
 
 CREATE INDEX idx_tracks_uploaded_by ON public.tracks (uploaded_by);
+
+CREATE INDEX idx_albums_created_by ON public.albums (created_by);
+
+CREATE INDEX idx_albums_artist ON public.albums (artist_id);
+
+CREATE INDEX idx_artists_user ON public.artists (user_id);
 
 CREATE INDEX idx_playlists_user ON public.playlists (user_id);
 
@@ -398,6 +443,12 @@ CREATE INDEX idx_favorites_albums_album ON public.favorites_albums (album_id);
 CREATE INDEX idx_favorites_playlists_user ON public.favorites_playlists (user_id);
 
 CREATE INDEX idx_favorites_playlists_playlist ON public.favorites_playlists (playlist_id);
+
+CREATE INDEX idx_artist_applications_user ON public.artist_applications (user_id);
+
+CREATE INDEX idx_artist_applications_status ON public.artist_applications (status);
+
+CREATE INDEX idx_artist_applications_reviewed_by ON public.artist_applications (reviewed_by);
 
 -- =================================================================================================
 -- 4. СОЗДАНИЕ ПРЕДСТАВЛЕНИЙ
@@ -820,6 +871,160 @@ BEGIN
 END;
 $$;
 
+-- Функция для обновления роли пользователя при одобрении анкеты и создания артиста
+CREATE OR REPLACE FUNCTION public.approve_artist_application(p_application_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    current_user_id UUID;
+    application_record RECORD;
+    artist_role_id UUID;
+    is_distributor BOOLEAN;
+    new_artist_id UUID;
+BEGIN
+    current_user_id := auth.uid();
+    
+    IF current_user_id IS NULL THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'User not authenticated');
+    END IF;
+    
+    -- Проверяем, является ли пользователь дистрибьютором
+    SELECT EXISTS(
+        SELECT 1 FROM public.users u
+        JOIN public.roles r ON u.role_id = r.id
+        WHERE u.id = current_user_id AND r.role_name = 'дистрибьютор'
+    ) INTO is_distributor;
+    
+    IF NOT is_distributor THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Only distributors can approve applications');
+    END IF;
+    
+    -- Получаем анкету
+    SELECT * INTO application_record
+    FROM public.artist_applications
+    WHERE id = p_application_id;
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Application not found');
+    END IF;
+    
+    IF application_record.status != 'pending' THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Application already reviewed');
+    END IF;
+    
+    -- Проверяем, не существует ли уже артист с таким именем
+    IF EXISTS (SELECT 1 FROM public.artists WHERE artist_name = application_record.artist_name) THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Artist with this name already exists');
+    END IF;
+    
+    -- Получаем ID роли артиста
+    SELECT id INTO artist_role_id
+    FROM public.roles
+    WHERE role_name = 'артист'
+    LIMIT 1;
+    
+    IF artist_role_id IS NULL THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Artist role not found');
+    END IF;
+    
+    -- Создаём артиста из данных анкеты и связываем с пользователем
+    INSERT INTO public.artists (
+        artist_name,
+        artist_bio,
+        artist_image_url,
+        genre,
+        user_id
+    ) VALUES (
+        application_record.artist_name,
+        application_record.artist_bio,
+        application_record.artist_image_url,
+        application_record.genre,
+        application_record.user_id
+    ) RETURNING id INTO new_artist_id;
+    
+    -- Обновляем роль пользователя
+    UPDATE public.users
+    SET role_id = artist_role_id
+    WHERE id = application_record.user_id;
+    
+    -- Обновляем статус анкеты
+    UPDATE public.artist_applications
+    SET 
+        status = 'approved',
+        reviewed_by = current_user_id,
+        reviewed_at = now()
+    WHERE id = p_application_id;
+    
+    RETURN jsonb_build_object('success', TRUE, 'message', 'Application approved', 'artist_id', new_artist_id);
+EXCEPTION
+    WHEN unique_violation THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Artist with this name already exists');
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', SQLERRM);
+END;
+$$;
+
+-- Функция для отклонения анкеты
+CREATE OR REPLACE FUNCTION public.reject_artist_application(p_application_id UUID, p_comment TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    current_user_id UUID;
+    application_record RECORD;
+    is_distributor BOOLEAN;
+BEGIN
+    current_user_id := auth.uid();
+    
+    IF current_user_id IS NULL THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'User not authenticated');
+    END IF;
+    
+    -- Проверяем, является ли пользователь дистрибьютором
+    SELECT EXISTS(
+        SELECT 1 FROM public.users u
+        JOIN public.roles r ON u.role_id = r.id
+        WHERE u.id = current_user_id AND r.role_name = 'дистрибьютор'
+    ) INTO is_distributor;
+    
+    IF NOT is_distributor THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Only distributors can reject applications');
+    END IF;
+    
+    -- Получаем анкету
+    SELECT * INTO application_record
+    FROM public.artist_applications
+    WHERE id = p_application_id;
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Application not found');
+    END IF;
+    
+    IF application_record.status != 'pending' THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', 'Application already reviewed');
+    END IF;
+    
+    -- Обновляем статус анкеты
+    UPDATE public.artist_applications
+    SET 
+        status = 'rejected',
+        reviewed_by = current_user_id,
+        review_comment = p_comment,
+        reviewed_at = now()
+    WHERE id = p_application_id;
+    
+    RETURN jsonb_build_object('success', TRUE, 'message', 'Application rejected');
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object('success', FALSE, 'error', SQLERRM);
+END;
+$$;
+
 -- Функция для добавления плейлиста в избранное
 CREATE OR REPLACE FUNCTION public.toggle_favorite_playlist(p_playlist_id UUID)
 RETURNS JSONB
@@ -903,6 +1108,11 @@ CREATE TRIGGER listening_history_trigger
   FOR EACH ROW
   EXECUTE FUNCTION public.log_listening();
 
+CREATE TRIGGER update_artist_applications_updated_at
+  BEFORE UPDATE ON public.artist_applications
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
 -- =================================================================================================
 -- 7. НАСТРОЙКА RLS (ROW LEVEL SECURITY)
 -- =================================================================================================
@@ -935,6 +1145,8 @@ ALTER TABLE public.favorites_albums ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.favorites_playlists ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public.artist_applications ENABLE ROW LEVEL SECURITY;
+
 -- Политики для ролей
 CREATE POLICY "Anyone can view roles" ON public.roles FOR
 SELECT TO authenticated USING (TRUE);
@@ -950,11 +1162,8 @@ UPDATE TO authenticated USING (auth.uid () = id);
 CREATE POLICY "Anyone can view artists" ON public.artists FOR
 SELECT TO authenticated USING (TRUE);
 
-CREATE POLICY "Authenticated users can insert artists" ON public.artists FOR
-INSERT
-    TO authenticated
-WITH
-    CHECK (TRUE);
+-- Артисты могут быть созданы только через одобрение анкет дистрибьюторами
+-- Прямое создание артистов через INSERT запрещено
 
 -- Политики для жанров
 CREATE POLICY "Anyone can view genres" ON public.genres FOR
@@ -962,24 +1171,30 @@ SELECT TO authenticated USING (TRUE);
 
 -- Политики для альбомов
 CREATE POLICY "Anyone can view public albums" ON public.albums FOR
-SELECT TO authenticated USING (is_public = TRUE);
+SELECT TO authenticated USING (
+        is_public = TRUE
+        OR is_active = TRUE
+    );
 
-CREATE POLICY "Authenticated users can insert albums" ON public.albums FOR
+CREATE POLICY "Artists and distributors can insert albums" ON public.albums FOR
 INSERT
     TO authenticated
 WITH
-    CHECK (TRUE);
+    CHECK (
+        EXISTS (
+            SELECT 1
+            FROM public.users u
+                JOIN public.roles r ON u.role_id = r.id
+            WHERE
+                u.id = auth.uid ()
+                AND (
+                    r.role_name = 'артист'
+                    OR r.role_name = 'дистрибьютор'
+                )
+        )
+    );
 
-CREATE POLICY "Users can delete own albums" ON public.albums FOR DELETE TO authenticated USING (
-    EXISTS (
-        SELECT 1
-        FROM public.tracks
-        WHERE
-            tracks.album_id = albums.id
-            AND tracks.uploaded_by = auth.uid ()
-        LIMIT 1
-    )
-);
+CREATE POLICY "Users can delete own albums" ON public.albums FOR DELETE TO authenticated USING (created_by = auth.uid ());
 
 -- Политики для треков
 CREATE POLICY "Anyone can view public tracks" ON public.tracks FOR
@@ -1084,6 +1299,43 @@ SELECT TO authenticated USING (user_id = auth.uid ());
 
 CREATE POLICY "Users can manage own favorite playlists" ON public.favorites_playlists FOR ALL TO authenticated USING (user_id = auth.uid ());
 
+-- Политики для анкет артистов
+CREATE POLICY "Users can view own artist applications" ON public.artist_applications FOR
+SELECT TO authenticated USING (user_id = auth.uid ());
+
+CREATE POLICY "Users can create artist applications" ON public.artist_applications FOR
+INSERT
+    TO authenticated
+WITH
+    CHECK (
+        user_id = auth.uid ()
+        AND status = 'pending'
+    );
+
+CREATE POLICY "Distributors can view all artist applications" ON public.artist_applications FOR
+SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1
+            FROM public.users u
+                JOIN public.roles r ON u.role_id = r.id
+            WHERE
+                u.id = auth.uid ()
+                AND r.role_name = 'дистрибьютор'
+        )
+    );
+
+CREATE POLICY "Distributors can update artist applications" ON public.artist_applications FOR
+UPDATE TO authenticated USING (
+    EXISTS (
+        SELECT 1
+        FROM public.users u
+            JOIN public.roles r ON u.role_id = r.id
+        WHERE
+            u.id = auth.uid ()
+            AND r.role_name = 'дистрибьютор'
+    )
+);
+
 -- =================================================================================================
 -- 8. ВСТАВКА БАЗОВЫХ ДАННЫХ
 -- =================================================================================================
@@ -1147,6 +1399,10 @@ ON CONFLICT (id) DO NOTHING;
 DROP POLICY IF EXISTS "Authenticated users can upload songs" ON storage.objects;
 
 DROP POLICY IF EXISTS "Users can view own songs" ON storage.objects;
+
+DROP POLICY IF EXISTS "Anyone can view public songs" ON storage.objects;
+
+DROP POLICY IF EXISTS "Users can delete own songs" ON storage.objects;
 
 DROP POLICY IF EXISTS "Anyone can view covers" ON storage.objects;
 

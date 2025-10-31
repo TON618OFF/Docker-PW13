@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Clock, Music, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Analytics = () => {
+  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalListens: 0,
     totalDurationMinutes: 0,
@@ -87,7 +89,7 @@ const Analytics = () => {
       });
     } catch (error) {
       console.error("Error fetching analytics:", error);
-      toast.error("Ошибка загрузки аналитики");
+      toast.error(t('analytics.loadError'));
     } finally {
       setLoading(false);
     }
@@ -135,12 +137,19 @@ const Analytics = () => {
 
       if (error) throw error;
 
-      const csvHeaders = ["Дата", "Трек", "Исполнитель", "Альбом", "Длительность трека", "Прослушано секунд"];
+      const csvHeaders = [
+        t('analytics.csvHeaders.date'),
+        t('analytics.csvHeaders.track'),
+        t('analytics.csvHeaders.artist'),
+        t('analytics.csvHeaders.album'),
+        t('analytics.csvHeaders.duration'),
+        t('analytics.csvHeaders.played')
+      ];
       const csvRows = historyData?.map(item => [
-        new Date(item.listened_at).toLocaleString("ru-RU"),
-        item.track?.track_title || "Неизвестно",
-        item.track?.album?.artist?.artist_name || "Неизвестно",
-        item.track?.album?.album_title || "Неизвестно",
+        new Date(item.listened_at).toLocaleString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US"),
+        item.track?.track_title || t('analytics.unknown'),
+        item.track?.album?.artist?.artist_name || t('analytics.unknown'),
+        item.track?.album?.album_title || t('analytics.unknown'),
         formatDuration(item.track?.track_duration || 0),
         item.duration_played || 0
       ]) || [];
@@ -160,9 +169,9 @@ const Analytics = () => {
       link.click();
       document.body.removeChild(link);
 
-      toast.success("Данные экспортированы в CSV");
+      toast.success(t('analytics.csvExportSuccess'));
     } catch (error: any) {
-      toast.error(`Ошибка экспорта: ${error.message}`);
+      toast.error(t('analytics.errorExport', { message: error.message }));
     }
   };
 
@@ -262,9 +271,9 @@ const Analytics = () => {
       });
 
       doc.save(`analytics_${new Date().toISOString().split('T')[0]}.pdf`);
-      toast.success("Данные экспортированы в PDF");
+      toast.success(t('analytics.pdfExportSuccess'));
     } catch (error: any) {
-      toast.error(`Ошибка экспорта: ${error.message}`);
+      toast.error(t('analytics.errorExport', { message: error.message }));
     }
   };
 
@@ -280,17 +289,17 @@ const Analytics = () => {
     <div className="space-y-6 pb-24 md:pb-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Аналитика</h1>
-          <p className="text-muted-foreground">Статистика ваших прослушиваний</p>
+          <h1 className="text-3xl font-bold mb-2">{t('analytics.title')}</h1>
+          <p className="text-muted-foreground">{t('analytics.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={exportToCSV} variant="outline" className="gap-2">
             <Download className="w-4 h-4" />
-            Экспорт CSV
+            {t('analytics.exportCSV')}
           </Button>
           <Button onClick={exportToPDF} variant="outline" className="gap-2">
             <Download className="w-4 h-4" />
-            Экспорт PDF
+            {t('analytics.exportPDF')}
           </Button>
         </div>
       </div>
@@ -302,7 +311,7 @@ const Analytics = () => {
               <TrendingUp className="w-6 h-6 text-primary" />
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Всего прослушиваний</p>
+          <p className="text-sm text-muted-foreground mb-1">{t('analytics.totalListens')}</p>
           <p className="text-3xl font-bold text-primary">{stats.totalListens}</p>
         </Card>
 
@@ -312,7 +321,7 @@ const Analytics = () => {
               <Clock className="w-6 h-6 text-secondary" />
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Время прослушивания</p>
+          <p className="text-sm text-muted-foreground mb-1">{t('analytics.listeningTime')}</p>
           <p className="text-3xl font-bold text-secondary">{formatMinutes(stats.totalDurationMinutes)}</p>
         </Card>
 
@@ -322,7 +331,7 @@ const Analytics = () => {
               <Music className="w-6 h-6 text-accent" />
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Прослушано треков</p>
+          <p className="text-sm text-muted-foreground mb-1">{t('analytics.tracksListened')}</p>
           <p className="text-3xl font-bold text-accent">{stats.totalTracks}</p>
         </Card>
 
@@ -332,7 +341,7 @@ const Analytics = () => {
               <BarChart3 className="w-6 h-6 text-foreground" />
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Средняя длительность трека</p>
+          <p className="text-sm text-muted-foreground mb-1">{t('analytics.avgDuration')}</p>
           <p className="text-3xl font-bold">{formatDuration(stats.avgTrackDuration)}</p>
         </Card>
       </div>

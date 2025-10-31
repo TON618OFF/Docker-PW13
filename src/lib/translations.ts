@@ -19,6 +19,7 @@ export type TranslationKey =
   | 'common.confirm'
   | 'common.yes'
   | 'common.no'
+  | 'common.none'
   | 'common.russian'
   | 'common.english'
   | 'common.loggedOut'
@@ -163,7 +164,280 @@ export type TranslationKey =
   | 'upload.upload'
   | 'upload.uploading'
   | 'upload.success'
-  | 'upload.createAlbumFirst';
+  | 'upload.createAlbumFirst'
+  
+  // Плейлисты детали
+  | 'playlists.detail.title'
+  | 'playlists.detail.back'
+  | 'playlists.detail.notFound'
+  | 'playlists.detail.empty'
+  | 'playlists.detail.addTracks'
+  | 'playlists.detail.playAll'
+  | 'playlists.detail.shuffle'
+  | 'playlists.detail.totalPlays'
+  | 'playlists.detail.totalDuration'
+  | 'playlists.detail.tracksCount'
+  | 'playlists.detail.removeTrack'
+  | 'playlists.detail.confirmRemove'
+  | 'playlists.detail.removeFromPlaylist'
+  | 'playlists.detail.errorDeleteTrack'
+  
+  // Альбомы детали
+  | 'albums.detail.back'
+  | 'albums.detail.playAll'
+  | 'albums.detail.shuffle'
+  | 'albums.detail.totalPlays'
+  | 'albums.detail.tracksCount'
+  
+  // Общие сообщения
+  | 'messages.success'
+  | 'messages.error'
+  | 'messages.loading'
+  | 'messages.noAccess'
+  | 'messages.created'
+  | 'messages.deleted'
+  | 'messages.updated'
+  | 'messages.addedToFavorites'
+  | 'messages.removedFromFavorites'
+  
+  // Дополнительные ключи для компонентов
+  | 'albums.manager.title'
+  | 'albums.manager.empty'
+  | 'albums.manager.emptySearch'
+  | 'albums.manager.emptyMessage'
+  | 'albums.manager.searchPlaceholder'
+  | 'albums.manager.unknownArtist'
+  | 'albums.manager.tracksLabel'
+  | 'albums.manager.durationLabel'
+  | 'albums.manager.releaseLabel'
+  | 'albums.manager.notSpecified'
+  | 'albums.manager.deleteConfirm'
+  | 'albums.manager.deleteSuccess'
+  | 'albums.manager.deleteError'
+  | 'albums.manager.favoriteAdded'
+  | 'albums.manager.favoriteRemoved'
+  
+  | 'artists.manager.title'
+  | 'artists.manager.empty'
+  | 'artists.manager.emptySearch'
+  | 'artists.manager.emptyMessage'
+  | 'artists.manager.searchPlaceholder'
+  | 'artists.manager.infoMessage'
+  | 'artists.manager.deleteConfirm'
+  | 'artists.manager.deleteSuccess'
+  
+  | 'upload.error.required'
+  | 'upload.error.loginRequired'
+  | 'upload.error.fileFormat'
+  | 'upload.error.fileSize'
+  | 'upload.error.userProfile'
+  | 'upload.placeholder.trackTitle'
+  | 'upload.placeholder.selectArtist'
+  | 'upload.placeholder.selectAlbum'
+  | 'upload.placeholder.selectGenre'
+  
+  | 'album.create.title'
+  | 'album.create.artistLabel'
+  | 'album.create.nameLabel'
+  | 'album.create.namePlaceholder'
+  | 'album.create.releaseLabel'
+  | 'album.create.descriptionLabel'
+  | 'album.create.descriptionPlaceholder'
+  | 'album.create.success'
+  | 'album.create.error'
+  | 'album.create.loginRequired'
+  | 'album.create.fillAll'
+  | 'album.create.noArtists'
+  | 'album.create.selectArtist'
+  
+  | 'artist.create.title'
+  | 'artist.create.nameLabel'
+  | 'artist.create.namePlaceholder'
+  | 'artist.create.bioLabel'
+  | 'artist.create.bioPlaceholder'
+  | 'artist.create.genreLabel'
+  | 'artist.create.success'
+  | 'artist.create.error'
+  | 'artist.create.enterName'
+  | 'artist.create.selectGenre'
+  
+  | 'artist.edit.title'
+  | 'artist.edit.save'
+  | 'artist.edit.success'
+  | 'artist.edit.error'
+  
+  | 'album.edit.title'
+  | 'album.edit.save'
+  | 'album.edit.success'
+  | 'album.edit.error'
+  
+  | 'playlist.create.error'
+  | 'playlist.create.nameRequired'
+  | 'playlist.create.nameLength'
+  | 'playlist.create.loginRequired'
+  
+  | 'image.upload.label'
+  | 'image.upload.selectImage'
+  | 'image.upload.replace'
+  | 'image.upload.selectFile'
+  | 'image.upload.maxSize'
+  | 'image.upload.success'
+  | 'image.upload.error'
+  | 'image.upload.loginRequired'
+  | 'image.upload.bucketNotFound'
+  | 'image.upload.noPermission'
+  
+  | 'addSong.title'
+  | 'addSong.selectTrack'
+  | 'addSong.searchPlaceholder'
+  | 'addSong.empty'
+  | 'addSong.emptySearch'
+  | 'addSong.selectTrackPlaceholder'
+  | 'addSong.adding'
+  | 'addSong.add'
+  | 'addSong.error.selectTrack'
+  | 'addSong.error.loginRequired'
+  | 'addSong.error.alreadyAdded'
+  | 'addSong.success'
+  | 'addSong.unknownArtist'
+  
+  | 'applications.title'
+  | 'applications.searchPlaceholder'
+  | 'applications.empty'
+  | 'applications.emptyFiltered'
+  | 'applications.status.pending'
+  | 'applications.status.approved'
+  | 'applications.status.rejected'
+  | 'applications.approve'
+  | 'applications.reject'
+  | 'applications.rejectComment'
+  | 'applications.rejectCommentPlaceholder'
+  | 'applications.approveSuccess'
+  | 'applications.approveError'
+  | 'applications.rejectSuccess'
+  | 'applications.rejectError'
+  | 'applications.loadError'
+  | 'applications.filter.all'
+  | 'applications.filter.pending'
+  | 'applications.filter.approved'
+  | 'applications.filter.rejected'
+  | 'applications.submitted'
+  | 'applications.biography'
+  | 'applications.genre'
+  | 'applications.motivation'
+  | 'applications.links'
+  | 'applications.portfolio'
+  | 'applications.rejectionComment'
+  
+  | 'becomeArtist.title'
+  | 'becomeArtist.nameLabel'
+  | 'becomeArtist.namePlaceholder'
+  | 'becomeArtist.bioLabel'
+  | 'becomeArtist.bioPlaceholder'
+  | 'becomeArtist.genreLabel'
+  | 'becomeArtist.portfolioLabel'
+  | 'becomeArtist.socialLabel'
+  | 'becomeArtist.motivationLabel'
+  | 'becomeArtist.motivationPlaceholder'
+  | 'becomeArtist.submit'
+  | 'becomeArtist.submitting'
+  | 'becomeArtist.success'
+  | 'becomeArtist.error.enterName'
+  | 'becomeArtist.error.pending'
+  | 'becomeArtist.error.approved'
+  | 'becomeArtist.error.loginRequired'
+  | 'becomeArtist.alreadyRole'
+  
+  | 'layout.adminPanel'
+  | 'layout.applications'
+  
+  | 'profile.usernameMinLength'
+  | 'profile.saveSuccess'
+  | 'profile.save'
+  | 'profile.saving'
+  | 'profile.user'
+  | 'profile.firstNamePlaceholder'
+  | 'profile.lastNamePlaceholder'
+  | 'profile.bioPlaceholder'
+  
+  | 'settings.usernameMinLength'
+  | 'settings.passwordMinLength'
+  | 'settings.passwordMismatch'
+  | 'settings.passwordChangeSuccess'
+  | 'settings.resetPasswordSuccess'
+  | 'settings.saveSuccess'
+  | 'settings.save'
+  | 'settings.saving'
+  | 'settings.changePasswordButton'
+  | 'settings.changingPassword'
+  | 'settings.firstNamePlaceholder'
+  | 'settings.lastNamePlaceholder'
+  | 'settings.bioPlaceholder'
+  | 'settings.newPasswordPlaceholder'
+  | 'settings.confirmPasswordPlaceholder'
+  
+  | 'library.deleteSuccess'
+  | 'library.deleteError'
+  | 'library.loadError'
+  | 'library.errorDeleteTrack'
+  | 'library.errorLoad'
+  
+  | 'albumDetail.notFound'
+  | 'albumDetail.loadError'
+  | 'albumDetail.noTracks'
+  | 'albumDetail.tracksTitle'
+  | 'albumDetail.emptyMessage'
+  | 'albumDetail.backToLibrary'
+  | 'albumDetail.playAll'
+  | 'albumDetail.shuffle'
+  
+  | 'playlistDetail.loadError'
+  | 'playlistDetail.noAccess'
+  
+  | 'playlists.loadError'
+  | 'playlists.track'
+  | 'playlists.playlistAdded'
+  | 'playlists.playlistRemoved'
+  
+  | 'analytics.loadError'
+  | 'analytics.csvExportSuccess'
+  | 'analytics.pdfExportSuccess'
+  | 'analytics.csvHeaders.date'
+  | 'analytics.csvHeaders.track'
+  | 'analytics.csvHeaders.artist'
+  | 'analytics.csvHeaders.album'
+  | 'analytics.csvHeaders.duration'
+  | 'analytics.csvHeaders.played'
+  | 'analytics.unknown'
+  
+  | 'auth.welcome'
+  | 'auth.usernameLength'
+  | 'auth.usernameTaken'
+  | 'auth.createUserError'
+  | 'auth.loginTitle'
+  | 'auth.registerTitle'
+  | 'auth.firstNamePlaceholder'
+  | 'auth.lastNamePlaceholder'
+  | 'auth.switchToRegister'
+  | 'auth.switchToLogin'
+  
+  | 'admin.loadError'
+  | 'admin.roleNotFound'
+  | 'admin.roleUpdateSuccess'
+  | 'admin.deleteConfirm'
+  | 'admin.deleteSuccess'
+  | 'admin.searchPlaceholder'
+  | 'admin.role.listener'
+  | 'admin.role.distributor'
+  | 'admin.role.admin'
+  | 'admin.role.artist'
+  
+  | 'common.track'
+  | 'common.upload'
+  | 'common.replace'
+  | 'common.selectFile'
+  | 'common.back'
+  | 'common.required';
 
 export interface Translations {
   ru: Record<TranslationKey, string>;
@@ -192,6 +466,7 @@ export const translations: Translations = {
     'common.confirm': 'Подтвердить',
     'common.yes': 'Да',
     'common.no': 'Нет',
+    'common.none': 'Не выбран',
     'common.russian': 'Русский',
     'common.english': 'English',
     'common.loggedOut': 'Вы вышли из системы',
@@ -280,6 +555,7 @@ export const translations: Translations = {
     'settings.favoriteTracks': 'Избранные треки',
     'settings.favoriteAlbums': 'Избранные альбомы',
     'settings.favoritePlaylists': 'Избранные плейлисты',
+    'settings.emailCannotChange': 'Email нельзя изменить',
     
     // Главная
     'index.hero.title': 'Ваша музыка. Всегда с вами.',
@@ -340,6 +616,394 @@ export const translations: Translations = {
     'upload.uploading': 'Загрузка...',
     'upload.success': 'Трек загружен успешно',
     'upload.createAlbumFirst': 'Перед загрузкой трека сначала создайте альбом в разделе "Артисты и альбомы" библиотеки',
+    
+    // Плейлисты детали
+    'playlists.detail.title': 'Плейлист',
+    'playlists.detail.back': 'Назад',
+    'playlists.detail.notFound': 'Плейлист не найден',
+    'playlists.detail.empty': 'Плейлист пуст',
+    'playlists.detail.addTracks': 'Добавьте треки в этот плейлист',
+    'playlists.detail.playAll': 'Играть все',
+    'playlists.detail.shuffle': 'Перемешать',
+    'playlists.detail.totalPlays': 'прослушиваний',
+    'playlists.detail.totalDuration': 'минут',
+    'playlists.detail.tracksCount': 'треков',
+    'playlists.detail.removeTrack': 'Удалить трек',
+    'playlists.detail.confirmRemove': 'Удалить трек из плейлиста?',
+    'playlists.detail.removeFromPlaylist': 'Трек удален из плейлиста',
+    'playlists.detail.errorDeleteTrack': 'Ошибка удаления трека: {message}',
+    
+    // Альбомы детали
+    'albums.detail.back': 'Назад',
+    'albums.detail.playAll': 'Играть все',
+    'albums.detail.shuffle': 'Перемешать',
+    'albums.detail.totalPlays': 'прослушиваний',
+    'albums.detail.tracksCount': 'треков',
+    
+    // Общие сообщения
+    'messages.success': 'Операция выполнена успешно',
+    'messages.error': 'Произошла ошибка',
+    'messages.loading': 'Загрузка...',
+    'messages.noAccess': 'У вас нет доступа',
+    'messages.created': 'Создано успешно',
+    'messages.deleted': 'Удалено успешно',
+    'messages.updated': 'Обновлено успешно',
+    'messages.addedToFavorites': 'Добавлено в избранное',
+    'messages.removedFromFavorites': 'Удалено из избранного',
+    
+    // Альбомы менеджер
+    'albums.manager.title': 'Альбомы',
+    'albums.manager.empty': 'Нет альбомов',
+    'albums.manager.emptySearch': 'Альбомы не найдены',
+    'albums.manager.emptyMessage': 'Загрузите треки с указанием альбома',
+    'albums.manager.searchPlaceholder': 'Поиск по названию альбома или исполнителю...',
+    'albums.manager.unknownArtist': 'Неизвестный артист',
+    'albums.manager.tracksLabel': 'Треков:',
+    'albums.manager.durationLabel': 'Длительность:',
+    'albums.manager.releaseLabel': 'Выпущен:',
+    'albums.manager.notSpecified': 'Не указано',
+    'albums.manager.deleteConfirm': 'Вы уверены, что хотите удалить этот альбом? Все треки в альбоме также будут удалены.',
+    'albums.manager.deleteSuccess': 'Альбом удалён',
+    'albums.manager.deleteError': 'Ошибка удаления альбома',
+    'albums.manager.favoriteAdded': 'Альбом добавлен в избранное',
+    'albums.manager.favoriteRemoved': 'Альбом удалён из избранного',
+    
+    // Артисты менеджер
+    'artists.manager.title': 'Артисты',
+    'artists.manager.empty': 'Нет артистов',
+    'artists.manager.emptySearch': 'Артисты не найдены',
+    'artists.manager.emptyMessage': 'Добавьте первого артиста',
+    'artists.manager.searchPlaceholder': 'Поиск артистов...',
+    'artists.manager.infoMessage': 'Артисты создаются автоматически при одобрении анкет дистрибьюторами',
+    'artists.manager.deleteConfirm': 'Вы уверены, что хотите удалить этого артиста? Все альбомы и треки этого артиста также будут удалены.',
+    'artists.manager.deleteSuccess': 'Артист удалён',
+    
+    // Загрузка ошибки
+    'upload.error.required': 'Заполните все обязательные поля',
+    'upload.error.loginRequired': 'Необходимо войти в систему',
+    'upload.error.fileFormat': 'Неподдерживаемый формат файла',
+    'upload.error.fileSize': 'Файл слишком большой (максимум 50MB)',
+    'upload.error.userProfile': 'Ошибка создания профиля пользователя',
+    'upload.placeholder.trackTitle': 'Название трека',
+    'upload.placeholder.selectArtist': 'Выберите исполнителя',
+    'upload.placeholder.selectAlbum': 'Выберите альбом',
+    'upload.placeholder.selectGenre': 'Выберите жанр (необязательно)',
+    
+    // Создание альбома
+    'album.create.title': 'Создать альбом',
+    'album.create.artistLabel': 'Артист *',
+    'album.create.nameLabel': 'Название альбома *',
+    'album.create.namePlaceholder': 'Название альбома',
+    'album.create.releaseLabel': 'Дата выпуска *',
+    'album.create.descriptionLabel': 'Описание',
+    'album.create.descriptionPlaceholder': 'Описание альбома',
+    'album.create.success': 'Альбом создан!',
+    'album.create.error': 'Ошибка создания альбома',
+    'album.create.loginRequired': 'Необходимо войти в систему',
+    'album.create.fillAll': 'Заполните все обязательные поля',
+    'album.create.noArtists': 'Нет доступных артистов',
+    'album.create.selectArtist': 'Выберите артиста',
+    
+    // Создание артиста
+    'artist.create.title': 'Создать артиста',
+    'artist.create.nameLabel': 'Имя исполнителя *',
+    'artist.create.namePlaceholder': 'Имя исполнителя',
+    'artist.create.bioLabel': 'Биография',
+    'artist.create.bioPlaceholder': 'Краткая биография артиста',
+    'artist.create.genreLabel': 'Жанр',
+    'artist.create.success': 'Артист создан!',
+    'artist.create.error': 'Ошибка создания артиста',
+    'artist.create.enterName': 'Введите имя артиста',
+    'artist.create.selectGenre': 'Выберите жанр (необязательно)',
+    
+    // Редактирование артиста
+    'artist.edit.title': 'Редактировать артиста',
+    'artist.edit.save': 'Сохранить',
+    'artist.edit.success': 'Артист обновлен!',
+    'artist.edit.error': 'Ошибка обновления артиста',
+    
+    // Редактирование альбома
+    'album.edit.title': 'Редактировать альбом',
+    'album.edit.save': 'Сохранить',
+    'album.edit.success': 'Альбом обновлен!',
+    'album.edit.error': 'Ошибка обновления альбома',
+    
+    // Создание плейлиста
+    'playlist.create.error': 'Ошибка создания плейлиста',
+    'playlist.create.nameRequired': 'Название обязательно',
+    'playlist.create.nameLength': 'Название должно быть от 2 до 100 символов',
+    'playlist.create.loginRequired': 'Необходимо войти в систему',
+    
+    // Загрузка изображений
+    'image.upload.label': 'Загрузить изображение',
+    'image.upload.selectImage': 'Пожалуйста, выберите изображение',
+    'image.upload.replace': 'Заменить',
+    'image.upload.selectFile': 'Выбрать файл',
+    'image.upload.maxSize': 'Макс. {size}MB',
+    'image.upload.success': 'Изображение загружено успешно',
+    'image.upload.error': 'Ошибка загрузки изображения',
+    'image.upload.loginRequired': 'Необходимо войти в систему',
+    'image.upload.bucketNotFound': 'Bucket не найден. Убедитесь, что bucket создан в Supabase Storage.',
+    'image.upload.noPermission': 'Нет прав для загрузки в bucket. Проверьте политики безопасности Storage.',
+    
+    // Добавление трека в плейлист
+    'addSong.title': 'Добавить трек',
+    'addSong.selectTrack': 'Выберите трек',
+    'addSong.searchPlaceholder': 'Поиск по названию, исполнителю или альбому...',
+    'addSong.empty': 'Нет доступных треков',
+    'addSong.emptySearch': 'Треки не найдены',
+    'addSong.selectTrackPlaceholder': 'Выберите трек для добавления',
+    'addSong.adding': 'Добавление...',
+    'addSong.add': 'Добавить',
+    'addSong.error.selectTrack': 'Выберите трек',
+    'addSong.error.loginRequired': 'Необходимо войти в систему',
+    'addSong.error.alreadyAdded': 'Трек уже добавлен в плейлист',
+    'addSong.error.loadTracks': 'Ошибка загрузки треков',
+    'addSong.error.add': 'Ошибка добавления трека',
+    'addSong.success': 'Трек добавлен в плейлист!',
+    'addSong.unknownArtist': 'Неизвестный артист',
+    'addSong.loadingTracks': 'Загрузка треков...',
+    
+    // Анкеты артистов
+    'applications.title': 'Анкеты артистов',
+    'applications.subtitle': 'Просмотр и рассмотрение анкет от слушателей',
+    'applications.searchPlaceholder': 'Поиск по имени артиста или пользователю...',
+    'applications.empty': 'Нет анкет для рассмотрения',
+    'applications.emptyFiltered': 'Попробуйте изменить фильтры',
+    'applications.status.pending': 'На рассмотрении',
+    'applications.status.approved': 'Одобрено',
+    'applications.status.rejected': 'Отклонено',
+    'applications.approve': 'Одобрить',
+    'applications.reject': 'Отклонить',
+    'applications.rejectComment': 'Комментарий',
+    'applications.rejectCommentPlaceholder': 'Укажите причину отклонения...',
+    'applications.approveSuccess': 'Анкета одобрена. Артист создан автоматически.',
+    'applications.approveError': 'Ошибка одобрения анкеты',
+    'applications.rejectSuccess': 'Анкета отклонена',
+    'applications.rejectError': 'Ошибка отклонения анкеты',
+    'applications.loadError': 'Ошибка загрузки анкет',
+    'applications.filter.all': 'Все',
+    'applications.filter.pending': 'На рассмотрении',
+    'applications.filter.approved': 'Одобренные',
+    'applications.filter.rejected': 'Отклонённые',
+    'applications.submitted': 'Подана:',
+    'applications.biography': 'Биография:',
+    'applications.genre': 'Жанр:',
+    'applications.motivation': 'Мотивация:',
+    'applications.links': 'Ссылки:',
+    'applications.portfolio': 'Портфолио',
+    'applications.rejectionComment': 'Комментарий при отклонении:',
+    
+    // Стать артистом
+    'becomeArtist.title': 'Стать артистом',
+    'becomeArtist.nameLabel': 'Имя исполнителя *',
+    'becomeArtist.namePlaceholder': 'Имя исполнителя',
+    'becomeArtist.bioLabel': 'Биография',
+    'becomeArtist.bioPlaceholder': 'Расскажите о себе как об артисте...',
+    'becomeArtist.genreLabel': 'Жанр',
+    'becomeArtist.selectGenre': 'Выберите жанр',
+    'becomeArtist.portfolioLabel': 'Портфолио (URL)',
+    'becomeArtist.socialLabel': 'Социальные сети',
+    'becomeArtist.motivationLabel': 'Мотивация',
+    'becomeArtist.motivationPlaceholder': 'Почему вы хотите стать артистом на платформе?',
+    'becomeArtist.submit': 'Отправить анкету',
+    'becomeArtist.submitting': 'Отправка...',
+    'becomeArtist.success': 'Анкета успешно отправлена на рассмотрение!',
+    'becomeArtist.error.enterName': 'Введите имя артиста',
+    'becomeArtist.error.pending': 'Ваша анкета уже находится на рассмотрении',
+    'becomeArtist.error.approved': 'Ваша анкета уже одобрена. Вы являетесь артистом',
+    'becomeArtist.error.loginRequired': 'Необходимо войти в систему',
+    'becomeArtist.error.submit': 'Ошибка отправки анкеты',
+    'becomeArtist.errorSubmit': 'Ошибка отправки анкеты: {message}',
+    'becomeArtist.alreadyRole': 'Вы уже являетесь {role}.',
+    'becomeArtist.imageLabel': 'Изображение артиста',
+    'becomeArtist.portfolioLabelPlaceholder': 'Ссылка на портфолио',
+    'becomeArtist.instagramLabel': 'Instagram',
+    'becomeArtist.youtubeLabel': 'YouTube',
+    'becomeArtist.approvedMessage': 'Поздравляем! Ваша анкета одобрена. Теперь вы артист.',
+    'becomeArtist.rejectedMessage': 'Ваша анкета отклонена.',
+    'becomeArtist.rejectedComment': 'Комментарий:',
+    'becomeArtist.reviewedAt': 'Рассмотрено:',
+    'becomeArtist.pendingMessage': 'Ваша анкета находится на рассмотрении дистрибьюторами.',
+    'becomeArtist.submittedAt': 'Подана:',
+    'becomeArtist.nameArtist': 'Имя артиста',
+    'becomeArtist.bioArtist': 'Биография артиста',
+    'becomeArtist.genreLabelPlaceholder': 'Выберите жанр (необязательно)',
+    'becomeArtist.noGenre': 'Без жанра',
+    
+    // Layout
+    'layout.adminPanel': 'Админ-панель',
+    'layout.applications': 'Анкеты артистов',
+    
+    // Профиль
+    'profile.usernameMinLength': 'Имя пользователя должно быть минимум 3 символа',
+    'profile.saveSuccess': 'Профиль сохранён',
+    'profile.saveError': 'Ошибка сохранения профиля',
+    'profile.save': 'Сохранить изменения',
+    'profile.saving': 'Сохранение...',
+    'profile.user': 'Пользователь',
+    'profile.firstNamePlaceholder': 'Имя',
+    'profile.lastNamePlaceholder': 'Фамилия',
+    'profile.bioPlaceholder': 'Расскажите о себе...',
+    'profile.registration': 'Регистрация',
+    'profile.lastLogin': 'Последний вход',
+    'profile.myTracks': 'Мои треки',
+    'profile.myPlaylists': 'Мои плейлисты',
+    'profile.favorites': 'В избранном',
+    'profile.edit': 'Редактировать профиль',
+    'profile.avatar': 'Аватар',
+    'profile.username': 'Имя пользователя',
+    'profile.firstName': 'Имя',
+    'profile.lastName': 'Фамилия',
+    'profile.bio': 'О себе',
+    'profile.allSettings': 'Все настройки',
+    
+    // Настройки
+    'settings.usernameMinLength': 'Имя пользователя должно быть минимум 3 символа',
+    'settings.passwordMinLength': 'Новый пароль должен быть минимум 6 символов',
+    'settings.passwordMismatch': 'Пароли не совпадают',
+    'settings.passwordChangeSuccess': 'Пароль успешно изменён',
+    'settings.resetPasswordSuccess': 'Ссылка для восстановления пароля отправлена на email',
+    'settings.saveError': 'Ошибка сохранения профиля',
+    'settings.passwordChangeError': 'Ошибка изменения пароля',
+    'settings.saveSuccess': 'Профиль сохранён',
+    'settings.save': 'Сохранить изменения',
+    'settings.saving': 'Сохранение...',
+    'settings.changePasswordButton': 'Изменить пароль',
+    'settings.changingPassword': 'Изменение...',
+    'settings.firstNamePlaceholder': 'Имя',
+    'settings.lastNamePlaceholder': 'Фамилия',
+    'settings.bioPlaceholder': 'Расскажите о себе...',
+    'settings.newPasswordPlaceholder': 'Введите новый пароль',
+    'settings.confirmPasswordPlaceholder': 'Повторите новый пароль',
+    'settings.title': 'Настройки',
+    'settings.subtitle': 'Управление вашим профилем и предпочтениями',
+    'settings.profile': 'Профиль',
+    'settings.favorites': 'Избранное',
+    'settings.appearance': 'Внешний вид',
+    'settings.password': 'Безопасность',
+    'settings.theme': 'Тема',
+    'settings.dark': 'Тёмная',
+    'settings.light': 'Светлая',
+    'settings.language': 'Язык интерфейса',
+    'settings.favoriteTracks': 'Треки',
+    'settings.favoriteAlbums': 'Альбомы',
+    'settings.favoritePlaylists': 'Плейлисты',
+    'settings.currentPassword': 'Текущий пароль',
+    'settings.newPassword': 'Новый пароль',
+    'settings.confirmPassword': 'Подтвердите новый пароль',
+    'settings.passwordHidden': 'Пароль скрыт по соображениям безопасности',
+    'settings.forgotPassword': 'Забыли пароль?',
+    'settings.resetPassword': 'Отправить ссылку для восстановления пароля',
+    
+    // Библиотека
+    'library.deleteSuccess': 'Трек удалён',
+    'library.deleteError': 'Ошибка удаления трека',
+    'library.loadError': 'Ошибка загрузки библиотеки',
+    'library.errorDeleteTrack': 'Ошибка удаления трека',
+    'library.errorLoad': 'Ошибка загрузки библиотеки',
+    
+    // Детали альбома
+    'albumDetail.notFound': 'Альбом не найден',
+    'albumDetail.loadError': 'Ошибка загрузки альбома',
+    'albumDetail.noTracks': 'Нет треков для воспроизведения',
+    'albumDetail.tracksTitle': 'Треки альбома',
+    'albumDetail.emptyMessage': 'В альбоме пока нет треков',
+    'albumDetail.backToLibrary': 'Вернуться к библиотеке',
+    'albumDetail.playAll': 'Слушать все',
+    'albumDetail.shuffle': 'Перемешать',
+    'albumDetail.tracks': 'треков',
+    'albumDetail.listens': 'прослушиваний',
+    'albumDetail.deleteError': 'Ошибка удаления трека',
+    'albumDetail.deleteSuccess': 'Трек удалён',
+    
+    // Детали плейлиста
+    'playlistDetail.loadError': 'Ошибка загрузки плейлиста',
+    'playlistDetail.noAccess': 'У вас нет доступа к этому плейлисту',
+    'playlistDetail.removeError': 'Ошибка удаления трека',
+    
+    // Плейлисты
+    'playlists.loadError': 'Ошибка загрузки плейлистов',
+    'playlists.track': 'трек',
+    'playlists.playlistAdded': 'Плейлист добавлен в избранное',
+    'playlists.playlistRemoved': 'Плейлист удалён из избранного',
+    
+    // Аналитика
+    'analytics.loadError': 'Ошибка загрузки аналитики',
+    'analytics.csvExportSuccess': 'Данные экспортированы в CSV',
+    'analytics.pdfExportSuccess': 'Данные экспортированы в PDF',
+    'analytics.csvHeaders.date': 'Дата',
+    'analytics.csvHeaders.track': 'Трек',
+    'analytics.csvHeaders.artist': 'Исполнитель',
+    'analytics.csvHeaders.album': 'Альбом',
+    'analytics.csvHeaders.duration': 'Длительность трека',
+    'analytics.csvHeaders.played': 'Прослушано секунд',
+    'analytics.unknown': 'Неизвестно',
+    'analytics.title': 'Аналитика',
+    'analytics.subtitle': 'Статистика ваших прослушиваний',
+    'analytics.exportCSV': 'Экспорт CSV',
+    'analytics.exportPDF': 'Экспорт PDF',
+    'analytics.totalListens': 'Всего прослушиваний',
+    'analytics.listeningTime': 'Время прослушивания',
+    'analytics.tracksListened': 'Прослушано треков',
+    'analytics.avgDuration': 'Средняя длительность трека',
+    
+    // Аутентификация
+    'auth.welcome': 'Добро пожаловать!',
+    'auth.usernameLength': 'Имя пользователя должно быть от 3 до 50 символов',
+    'auth.usernameTaken': 'Имя пользователя уже занято',
+    'auth.createUserError': 'Не удалось создать пользователя',
+    'auth.loginTitle': 'Войдите в свой аккаунт',
+    'auth.registerTitle': 'Создайте новый аккаунт',
+    'auth.firstNamePlaceholder': 'Введите имя',
+    'auth.lastNamePlaceholder': 'Введите фамилию',
+    'auth.usernamePlaceholder': 'username (3-50 символов)',
+    'auth.email': 'Email',
+    'auth.password': 'Пароль',
+    'auth.emailPlaceholder': 'your@email.com',
+    'auth.passwordPlaceholder': '••••••••',
+    'auth.switchToRegister': 'Нет аккаунта? Зарегистрируйтесь',
+    'auth.switchToLogin': 'Уже есть аккаунт? Войдите',
+    'auth.login': 'Войти',
+    'auth.register': 'Зарегистрироваться',
+    'auth.registrationSuccess': 'Регистрация успешна! Проверьте email для подтверждения.',
+    'auth.confirmEmail': 'Пожалуйста, подтвердите email для входа. После подтверждения вы сможете войти.',
+    
+    // Админ панель
+    'admin.loadError': 'Ошибка загрузки данных',
+    'admin.roleNotFound': 'Роль не найдена',
+    'admin.roleUpdateSuccess': 'Роль пользователя обновлена',
+    'admin.deleteConfirm': 'Вы уверены, что хотите удалить этого пользователя?',
+    'admin.deleteSuccess': 'Пользователь удалён',
+    'admin.roleUpdateError': 'Ошибка обновления роли',
+    'admin.deleteError': 'Ошибка удаления пользователя',
+    'admin.searchPlaceholder': 'Поиск пользователей...',
+    'admin.role.listener': 'Слушатель',
+    'admin.role.distributor': 'Дистрибьютор',
+    'admin.role.admin': 'Администратор',
+    'admin.role.artist': 'Артист',
+    'admin.title': 'Админ-панель',
+    'admin.subtitle': 'Управление пользователями и контентом',
+    
+    // Общие
+    'common.track': 'трек',
+    'common.upload': 'Загрузка...',
+    'common.replace': 'Заменить',
+    'common.selectFile': 'Выбрать файл',
+    'common.back': 'Назад',
+    'common.required': '*',
+    
+    // Music Player
+    'musicPlayer.error.invalidPath': 'Неверный путь к аудио файлу',
+    'musicPlayer.error.localFiles': 'Локальные файлы не поддерживаются для воспроизведения',
+    'musicPlayer.error.loadAudio': 'Ошибка загрузки аудио файла',
+    'musicPlayer.error.noLink': 'Не удалось получить ссылку на аудио файл',
+    'musicPlayer.error.loadTrack': 'Ошибка загрузки трека',
+    'musicPlayer.error.playback': 'Ошибка воспроизведения аудио',
+    'musicPlayer.info.loading': 'Загрузка аудио...',
+    'musicPlayer.error.format': 'Формат аудио не поддерживается браузером',
+    'musicPlayer.error.autoplay': 'Автовоспроизведение заблокировано браузером',
+    'musicPlayer.selectTrack': 'Выберите трек для воспроизведения',
   },
   en: {
     // Common
@@ -411,6 +1075,7 @@ export const translations: Translations = {
     'analytics.listeningTime': 'Listening time',
     'analytics.tracksListened': 'Tracks listened',
     'analytics.avgDuration': 'Average track duration',
+    'analytics.exportError': 'Export error',
     'analytics.exportCSV': 'Export CSV',
     'analytics.exportPDF': 'Export PDF',
     
@@ -487,6 +1152,7 @@ export const translations: Translations = {
     'auth.invalidCredentials': 'Invalid login credentials',
     'auth.registrationSuccess': 'Registration successful! Check your email for confirmation.',
     'auth.confirmEmail': 'Please confirm your email to log in. After confirmation, you will be able to log in.',
+    'auth.error': 'Authentication error',
     
     // Albums and artists
     'albums.title': 'Artists & Albums',
@@ -510,5 +1176,376 @@ export const translations: Translations = {
     'upload.uploading': 'Uploading...',
     'upload.success': 'Track uploaded successfully',
     'upload.createAlbumFirst': 'Before uploading a track, first create an album in the "Artists and Albums" section of the library',
+    
+    // Playlists detail
+    'playlists.detail.title': 'Playlist',
+    'playlists.detail.back': 'Back',
+    'playlists.detail.notFound': 'Playlist not found',
+    'playlists.detail.empty': 'Playlist is empty',
+    'playlists.detail.addTracks': 'Add tracks to this playlist',
+    'playlists.detail.playAll': 'Play All',
+    'playlists.detail.shuffle': 'Shuffle',
+    'playlists.detail.totalPlays': 'plays',
+    'playlists.detail.totalDuration': 'minutes',
+    'playlists.detail.tracksCount': 'tracks',
+    'playlists.detail.removeTrack': 'Remove track',
+    'playlists.detail.confirmRemove': 'Remove track from playlist?',
+    'playlists.detail.removeFromPlaylist': 'Track removed from playlist',
+    'playlists.detail.errorDeleteTrack': 'Error deleting track: {message}',
+    
+    // Albums detail
+    'albums.detail.back': 'Back',
+    'albums.detail.playAll': 'Play All',
+    'albums.detail.shuffle': 'Shuffle',
+    'albums.detail.totalPlays': 'plays',
+    'albums.detail.tracksCount': 'tracks',
+    
+    // Common messages
+    'messages.success': 'Operation completed successfully',
+    'messages.error': 'An error occurred',
+    'messages.loading': 'Loading...',
+    'messages.noAccess': 'You do not have access',
+    'messages.created': 'Created successfully',
+    'messages.deleted': 'Deleted successfully',
+    'messages.updated': 'Updated successfully',
+    'messages.addedToFavorites': 'Added to favorites',
+    'messages.removedFromFavorites': 'Removed from favorites',
+    
+    // Albums manager
+    'albums.manager.title': 'Albums',
+    'albums.manager.empty': 'No albums',
+    'albums.manager.emptySearch': 'Albums not found',
+    'albums.manager.emptyMessage': 'Upload tracks with album specified',
+    'albums.manager.searchPlaceholder': 'Search by album title or artist...',
+    'albums.manager.unknownArtist': 'Unknown artist',
+    'albums.manager.tracksLabel': 'Tracks:',
+    'albums.manager.durationLabel': 'Duration:',
+    'albums.manager.releaseLabel': 'Released:',
+    'albums.manager.notSpecified': 'Not specified',
+    'albums.manager.deleteConfirm': 'Are you sure you want to delete this album? All tracks in the album will also be deleted.',
+    'albums.manager.deleteSuccess': 'Album deleted',
+    'albums.manager.deleteError': 'Error deleting album',
+    'albums.manager.favoriteAdded': 'Album added to favorites',
+    'albums.manager.favoriteRemoved': 'Album removed from favorites',
+    
+    // Artists manager
+    'artists.manager.title': 'Artists',
+    'artists.manager.empty': 'No artists',
+    'artists.manager.emptySearch': 'Artists not found',
+    'artists.manager.emptyMessage': 'Add first artist',
+    'artists.manager.searchPlaceholder': 'Search artists...',
+    'artists.manager.infoMessage': 'Artists are created automatically when applications are approved by distributors',
+    'artists.manager.deleteConfirm': 'Are you sure you want to delete this artist? All albums and tracks by this artist will also be deleted.',
+    'artists.manager.deleteSuccess': 'Artist deleted',
+    
+    // Upload errors
+    'upload.error.required': 'Fill in all required fields',
+    'upload.error.loginRequired': 'You must be logged in',
+    'upload.error.fileFormat': 'Unsupported file format',
+    'upload.error.fileSize': 'File too large (maximum 50MB)',
+    'upload.error.userProfile': 'Error creating user profile',
+    'upload.placeholder.trackTitle': 'Track title',
+    'upload.placeholder.selectArtist': 'Select artist',
+    'upload.placeholder.selectAlbum': 'Select album',
+    'upload.placeholder.selectGenre': 'Select genre (optional)',
+    
+    // Album create
+    'album.create.title': 'Create album',
+    'album.create.artistLabel': 'Artist *',
+    'album.create.nameLabel': 'Album title *',
+    'album.create.namePlaceholder': 'Album title',
+    'album.create.releaseLabel': 'Release date *',
+    'album.create.descriptionLabel': 'Description',
+    'album.create.descriptionPlaceholder': 'Album description',
+    'album.create.success': 'Album created!',
+    'album.create.error': 'Error creating album',
+    'album.create.loginRequired': 'You must be logged in',
+    'album.create.fillAll': 'Fill in all required fields',
+    'album.create.noArtists': 'No available artists',
+    'album.create.selectArtist': 'Select artist',
+    
+    // Artist create
+    'artist.create.title': 'Create artist',
+    'artist.create.nameLabel': 'Artist name *',
+    'artist.create.namePlaceholder': 'Artist name',
+    'artist.create.bioLabel': 'Biography',
+    'artist.create.bioPlaceholder': 'Brief artist biography',
+    'artist.create.genreLabel': 'Genre',
+    'artist.create.success': 'Artist created!',
+    'artist.create.error': 'Error creating artist',
+    'artist.create.enterName': 'Enter artist name',
+    'artist.create.selectGenre': 'Select genre (optional)',
+    
+    // Artist edit
+    'artist.edit.title': 'Edit artist',
+    'artist.edit.save': 'Save',
+    'artist.edit.success': 'Artist updated!',
+    'artist.edit.error': 'Error updating artist',
+    
+    // Album edit
+    'album.edit.title': 'Edit album',
+    'album.edit.save': 'Save',
+    'album.edit.success': 'Album updated!',
+    'album.edit.error': 'Error updating album',
+    
+    // Playlist create
+    'playlist.create.error': 'Error creating playlist',
+    'playlist.create.nameRequired': 'Name is required',
+    'playlist.create.nameLength': 'Name must be between 2 and 100 characters',
+    'playlist.create.loginRequired': 'You must be logged in',
+    
+    // Image upload
+    'image.upload.label': 'Upload image',
+    'image.upload.selectImage': 'Please select an image',
+    'image.upload.replace': 'Replace',
+    'image.upload.selectFile': 'Select file',
+    'image.upload.maxSize': 'Max {size}MB',
+    'image.upload.success': 'Image uploaded successfully',
+    'image.upload.error': 'Error uploading image',
+    'image.upload.loginRequired': 'You must be logged in',
+    'image.upload.bucketNotFound': 'Bucket not found. Make sure the bucket is created in Supabase Storage.',
+    'image.upload.noPermission': 'No permission to upload to bucket. Check Storage security policies.',
+    
+    // Add song
+    'addSong.title': 'Add track',
+    'addSong.selectTrack': 'Select track',
+    'addSong.searchPlaceholder': 'Search by title, artist or album...',
+    'addSong.empty': 'No available tracks',
+    'addSong.emptySearch': 'No tracks found',
+    'addSong.selectTrackPlaceholder': 'Select track to add',
+    'addSong.adding': 'Adding...',
+    'addSong.add': 'Add',
+    'addSong.error.selectTrack': 'Select a track',
+    'addSong.error.loginRequired': 'You must be logged in',
+    'addSong.error.alreadyAdded': 'Track already added to playlist',
+    'addSong.error.loadTracks': 'Error loading tracks',
+    'addSong.error.add': 'Error adding track',
+    'addSong.success': 'Track added to playlist!',
+    'addSong.unknownArtist': 'Unknown artist',
+    'addSong.selectTrack': 'Select track',
+    'addSong.loadingTracks': 'Loading tracks...',
+    
+    // Applications
+    'applications.title': 'Artist applications',
+    'applications.subtitle': 'View and review applications from listeners',
+    'applications.searchPlaceholder': 'Search by artist name or user...',
+    'applications.empty': 'No applications to review',
+    'applications.emptyFiltered': 'Try changing filters',
+    'applications.status.pending': 'Pending',
+    'applications.status.approved': 'Approved',
+    'applications.status.rejected': 'Rejected',
+    'applications.approve': 'Approve',
+    'applications.reject': 'Reject',
+    'applications.rejectComment': 'Comment',
+    'applications.rejectCommentPlaceholder': 'Specify rejection reason...',
+    'applications.approveSuccess': 'Application approved. Artist created automatically.',
+    'applications.approveError': 'Error approving application',
+    'applications.rejectSuccess': 'Application rejected',
+    'applications.rejectError': 'Error rejecting application',
+    'applications.loadError': 'Error loading applications',
+    'applications.filter.all': 'All',
+    'applications.filter.pending': 'Pending',
+    'applications.filter.approved': 'Approved',
+    'applications.filter.rejected': 'Rejected',
+    'applications.submitted': 'Submitted:',
+    'applications.biography': 'Biography:',
+    'applications.genre': 'Genre:',
+    'applications.motivation': 'Motivation:',
+    'applications.links': 'Links:',
+    'applications.portfolio': 'Portfolio',
+    'applications.rejectionComment': 'Rejection comment:',
+    
+    // Become artist
+    'becomeArtist.title': 'Become an artist',
+    'becomeArtist.nameLabel': 'Artist name *',
+    'becomeArtist.namePlaceholder': 'Artist name',
+    'becomeArtist.bioLabel': 'Biography',
+    'becomeArtist.bioPlaceholder': 'Tell us about yourself as an artist...',
+    'becomeArtist.genreLabel': 'Genre',
+    'becomeArtist.selectGenre': 'Select genre',
+    'becomeArtist.portfolioLabel': 'Portfolio (URL)',
+    'becomeArtist.socialLabel': 'Social media',
+    'becomeArtist.motivationLabel': 'Motivation',
+    'becomeArtist.motivationPlaceholder': 'Why do you want to become an artist on the platform?',
+    'becomeArtist.submit': 'Submit application',
+    'becomeArtist.submitting': 'Submitting...',
+    'becomeArtist.success': 'Application successfully submitted for review!',
+    'becomeArtist.error.enterName': 'Enter artist name',
+    'becomeArtist.error.pending': 'Your application is already under review',
+    'becomeArtist.error.approved': 'Your application has already been approved. You are an artist',
+    'becomeArtist.error.loginRequired': 'You must be logged in',
+    'becomeArtist.error.submit': 'Error submitting application',
+    'becomeArtist.alreadyRole': 'You are already a {role}.',
+    'becomeArtist.imageLabel': 'Artist image',
+    'becomeArtist.portfolioLabelPlaceholder': 'Portfolio link',
+    'becomeArtist.instagramLabel': 'Instagram',
+    'becomeArtist.youtubeLabel': 'YouTube',
+    'becomeArtist.approvedMessage': 'Congratulations! Your application has been approved. You are now an artist.',
+    'becomeArtist.rejectedMessage': 'Your application has been rejected.',
+    'becomeArtist.rejectedComment': 'Comment:',
+    'becomeArtist.reviewedAt': 'Reviewed:',
+    'becomeArtist.pendingMessage': 'Your application is under review by distributors.',
+    'becomeArtist.submittedAt': 'Submitted:',
+    'becomeArtist.nameArtist': 'Artist name',
+    'becomeArtist.bioArtist': 'Artist biography',
+    'becomeArtist.genreLabelPlaceholder': 'Select genre (optional)',
+    'becomeArtist.noGenre': 'No genre',
+    
+    // Layout
+    'layout.adminPanel': 'Admin Panel',
+    'layout.applications': 'Artist applications',
+    
+    // Profile
+    'profile.usernameMinLength': 'Username must be at least 3 characters',
+    'profile.saveError': 'Profile saved',
+    'profile.saveError': 'Error saving profile',
+    'profile.save': 'Save changes',
+    'profile.saving': 'Saving...',
+    'profile.user': 'User',
+    'profile.firstNamePlaceholder': 'First name',
+    'profile.lastNamePlaceholder': 'Last name',
+    'profile.bioPlaceholder': 'Tell us about yourself...',
+    'profile.registration': 'Registration',
+    'profile.lastLogin': 'Last login',
+    'profile.myTracks': 'My tracks',
+    'profile.myPlaylists': 'My playlists',
+    'profile.favorites': 'In favorites',
+    'profile.edit': 'Edit profile',
+    'profile.avatar': 'Avatar',
+    'profile.username': 'Username',
+    'profile.firstName': 'First name',
+    'profile.lastName': 'Last name',
+    'profile.bio': 'About me',
+    'profile.allSettings': 'All settings',
+    
+    // Settings
+    'settings.usernameMinLength': 'Username must be at least 3 characters',
+    'settings.passwordMinLength': 'New password must be at least 6 characters',
+    'settings.passwordMismatch': 'Passwords do not match',
+    'settings.passwordChangeSuccess': 'Password changed successfully',
+    'settings.resetPasswordSuccess': 'Password recovery link sent to email',
+    'settings.saveError': 'Error saving profile',
+    'settings.passwordChangeError': 'Error changing password',
+    'settings.saveSuccess': 'Profile saved',
+    'settings.save': 'Save changes',
+    'settings.saving': 'Saving...',
+    'settings.changePasswordButton': 'Change password',
+    'settings.changingPassword': 'Changing...',
+    'settings.firstNamePlaceholder': 'First name',
+    'settings.lastNamePlaceholder': 'Last name',
+    'settings.bioPlaceholder': 'Tell us about yourself...',
+    'settings.newPasswordPlaceholder': 'Enter new password',
+    'settings.confirmPasswordPlaceholder': 'Repeat new password',
+    'settings.title': 'Settings',
+    'settings.subtitle': 'Manage your profile and preferences',
+    'settings.profile': 'Profile',
+    'settings.favorites': 'Favorites',
+    'settings.appearance': 'Appearance',
+    'settings.password': 'Security',
+    'settings.theme': 'Theme',
+    'settings.dark': 'Dark',
+    'settings.light': 'Light',
+    'settings.language': 'Interface language',
+    'settings.favoriteTracks': 'Tracks',
+    'settings.favoriteAlbums': 'Albums',
+    'settings.favoritePlaylists': 'Playlists',
+    'settings.currentPassword': 'Current password',
+    'settings.newPassword': 'New password',
+    'settings.confirmPassword': 'Confirm new password',
+    'settings.passwordHidden': 'Password hidden for security reasons',
+    'settings.forgotPassword': 'Forgot password?',
+    'settings.resetPassword': 'Send password recovery link',
+    
+    // Library
+    'library.deleteSuccess': 'Track deleted',
+    'library.deleteError': 'Error deleting track',
+    'library.loadError': 'Error loading library',
+    'library.errorDeleteTrack': 'Error deleting track',
+    'library.errorLoad': 'Error loading library',
+    
+    // Album detail
+    'albumDetail.notFound': 'Album not found',
+    'albumDetail.loadError': 'Error loading album',
+    'albumDetail.noTracks': 'No tracks to play',
+    'albumDetail.tracksTitle': 'Album tracks',
+    'albumDetail.emptyMessage': 'No tracks in album yet',
+    'albumDetail.backToLibrary': 'Back to library',
+    'albumDetail.playAll': 'Play All',
+    'albumDetail.shuffle': 'Shuffle',
+    'albumDetail.tracks': 'tracks',
+    'albumDetail.listens': 'listens',
+    'albumDetail.deleteError': 'Error deleting track',
+    'albumDetail.deleteSuccess': 'Track deleted',
+    
+    // Playlist detail
+    'playlistDetail.loadError': 'Error loading playlist',
+    'playlistDetail.noAccess': 'You do not have access to this playlist',
+    'playlistDetail.removeError': 'Error removing track',
+    
+    // Playlists
+    'playlists.loadError': 'Error loading playlists',
+    'playlists.track': 'track',
+    'playlists.playlistAdded': 'Playlist added to favorites',
+    'playlists.playlistRemoved': 'Playlist removed from favorites',
+    
+    // Analytics
+    'analytics.loadError': 'Error loading analytics',
+    'analytics.csvExportSuccess': 'Data exported to CSV',
+    'analytics.pdfExportSuccess': 'Data exported to PDF',
+    'analytics.csvHeaders.date': 'Date',
+    'analytics.csvHeaders.track': 'Track',
+    'analytics.csvHeaders.artist': 'Artist',
+    'analytics.csvHeaders.album': 'Album',
+    'analytics.csvHeaders.duration': 'Track duration',
+    'analytics.csvHeaders.played': 'Seconds played',
+    'analytics.unknown': 'Unknown',
+    
+    // Auth
+    'auth.welcome': 'Welcome!',
+    'auth.usernameLength': 'Username must be between 3 and 50 characters',
+    'auth.usernameTaken': 'Username already taken',
+    'auth.createUserError': 'Failed to create user',
+    'auth.loginTitle': 'Login to your account',
+    'auth.registerTitle': 'Create new account',
+    'auth.firstNamePlaceholder': 'Enter first name',
+    'auth.lastNamePlaceholder': 'Enter last name',
+    'auth.switchToRegister': "Don't have an account? Register",
+    'auth.switchToLogin': 'Already have an account? Login',
+    
+    // Admin panel
+    'admin.loadError': 'Error loading data',
+    'admin.roleNotFound': 'Role not found',
+    'admin.roleUpdateSuccess': 'User role updated',
+    'admin.deleteConfirm': 'Are you sure you want to delete this user?',
+    'admin.deleteSuccess': 'User deleted',
+    'admin.roleUpdateError': 'Error updating role',
+    'admin.deleteError': 'Error deleting user',
+    'admin.searchPlaceholder': 'Search users...',
+    'admin.role.listener': 'Listener',
+    'admin.role.distributor': 'Distributor',
+    'admin.role.admin': 'Administrator',
+    'admin.role.artist': 'Artist',
+    'admin.title': 'Admin Panel',
+    'admin.subtitle': 'User and content management',
+    
+    // Common
+    'common.track': 'track',
+    'common.upload': 'Uploading...',
+    'common.replace': 'Replace',
+    'common.selectFile': 'Select file',
+    'common.back': 'Back',
+    'common.required': '*',
+    
+    // Music Player
+    'musicPlayer.error.invalidPath': 'Invalid audio file path',
+    'musicPlayer.error.localFiles': 'Local files are not supported for playback',
+    'musicPlayer.error.loadAudio': 'Error loading audio file',
+    'musicPlayer.error.noLink': 'Failed to get audio file link',
+    'musicPlayer.error.loadTrack': 'Error loading track',
+    'musicPlayer.error.playback': 'Audio playback error',
+    'musicPlayer.info.loading': 'Loading audio...',
+    'musicPlayer.error.format': 'Audio format not supported by browser',
+    'musicPlayer.error.autoplay': 'Autoplay blocked by browser',
+    'musicPlayer.selectTrack': 'Select a track to play',
   },
 };

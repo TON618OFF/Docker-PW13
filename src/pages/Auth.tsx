@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Music2 } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Auth = () => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,12 +55,12 @@ const Auth = () => {
           }
         }
         
-        toast.success("Добро пожаловать!");
+        toast.success(t('auth.welcome'));
         navigate("/");
       } else {
         // Валидация username
         if (!username.trim() || username.length < 3 || username.length > 50) {
-          toast.error("Имя пользователя должно быть от 3 до 50 символов");
+          toast.error(t('auth.usernameLength'));
           setLoading(false);
           return;
         }
@@ -71,7 +73,7 @@ const Auth = () => {
           .single();
 
         if (existingUser) {
-          toast.error("Имя пользователя уже занято");
+          toast.error(t('auth.usernameTaken'));
           setLoading(false);
           return;
         }
@@ -112,19 +114,19 @@ const Auth = () => {
           console.log("Пользователь создан:", createResult);
         }
 
-        toast.success("Регистрация успешна! Проверьте email для подтверждения.");
+        toast.success(t('auth.registrationSuccess'));
         
         // Если email подтверждение не требуется, сразу входим
         if (authData.session) {
           navigate("/");
         } else {
           // Ждём подтверждения email
-          toast.info("Пожалуйста, подтвердите email для входа. После подтверждения вы сможете войти.");
+          toast.info(t('auth.confirmEmail'));
           // Не перенаправляем, пользователь останется на странице входа
         }
       }
     } catch (error: any) {
-      toast.error(error.message || "Ошибка аутентификации");
+      toast.error(error.message || t('auth.error'));
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,7 @@ const Auth = () => {
             ImperialTunes Player
           </h1>
           <p className="text-muted-foreground">
-            {isLogin ? "Войдите в свой аккаунт" : "Создайте новый аккаунт"}
+            {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
           </p>
         </div>
 
@@ -149,11 +151,11 @@ const Auth = () => {
           {!isLogin && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="username">Имя пользователя *</Label>
+                <Label htmlFor="username">{t('profile.username')} {t('common.required')}</Label>
                 <Input
                   id="username"
                   type="text"
-                  placeholder="username (3-50 символов)"
+                  placeholder={t('auth.usernamePlaceholder')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
@@ -163,22 +165,22 @@ const Auth = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="firstName">Имя</Label>
+                <Label htmlFor="firstName">{t('profile.firstName')}</Label>
                 <Input
                   id="firstName"
                   type="text"
-                  placeholder="Введите имя"
+                  placeholder={t('auth.firstNamePlaceholder')}
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="bg-input border-border"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Фамилия</Label>
+                <Label htmlFor="lastName">{t('profile.lastName')}</Label>
                 <Input
                   id="lastName"
                   type="text"
-                  placeholder="Введите фамилию"
+                  placeholder={t('auth.lastNamePlaceholder')}
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   className="bg-input border-border"
@@ -192,7 +194,7 @@ const Auth = () => {
             <Input
               id="email"
               type="email"
-              placeholder="your@email.com"
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -201,11 +203,11 @@ const Auth = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Пароль</Label>
+            <Label htmlFor="password">{t('auth.password')}</Label>
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder={t('auth.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -219,7 +221,7 @@ const Auth = () => {
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             disabled={loading}
           >
-            {loading ? "Загрузка..." : isLogin ? "Войти" : "Зарегистрироваться"}
+            {loading ? t('common.loading') : isLogin ? t('auth.login') : t('auth.register')}
           </Button>
         </form>
 
@@ -229,7 +231,7 @@ const Auth = () => {
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm text-muted-foreground hover:text-primary transition-colors"
           >
-            {isLogin ? "Нет аккаунта? Зарегистрируйтесь" : "Уже есть аккаунт? Войдите"}
+            {isLogin ? t('auth.switchToRegister') : t('auth.switchToLogin')}
           </button>
         </div>
       </Card>

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface ImageUploadProps {
   currentUrl?: string | null;
@@ -21,6 +22,7 @@ const ImageUpload = ({
   maxSizeMB = 5,
   aspectRatio
 }: ImageUploadProps) => {
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,14 +33,14 @@ const ImageUpload = ({
 
     // Проверка типа файла
     if (!file.type.startsWith('image/')) {
-      toast.error("Пожалуйста, выберите изображение");
+      toast.error(t('image.upload.selectImage'));
       return;
     }
 
     // Проверка размера
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      toast.error(`Размер файла не должен превышать ${maxSizeMB}MB`);
+      toast.error(t('image.upload.maxSize').replace('{size}', maxSizeMB.toString()));
       return;
     }
 
@@ -58,46 +60,12 @@ const ImageUpload = ({
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
-        toast.error("Необходимо войти в систему");
+        toast.error(t('image.upload.loginRequired'));
         return;
       }
 
-      // Проверяем существование bucket и создаем его при необходимости
-      let bucketExists = false;
-      try {
-        const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-        
-        if (listError) {
-          console.warn("Не удалось проверить список bucket'ов:", listError);
-          // Продолжаем попытку загрузки
-        } else if (buckets) {
-          bucketExists = buckets.some(b => b.name === bucket);
-        }
-      } catch (error) {
-        console.warn("Ошибка при проверке bucket'ов:", error);
-      }
-      
-      // Если bucket не существует, пробуем создать его
-      if (!bucketExists) {
-        const bucketConfig = {
-          public: true,
-          fileSizeLimit: 5242880, // 5MB
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
-        };
-        
-        const { error: createError } = await supabase.storage.createBucket(bucket, bucketConfig);
-        
-        if (createError) {
-          // Если bucket уже существует (кто-то создал его между проверкой и созданием), это нормально
-          if (!createError.message.includes('already exists') && !createError.message.includes('duplicate')) {
-            console.warn("Ошибка создания bucket:", createError);
-            // Продолжаем попытку загрузки - возможно bucket уже существует
-          }
-        } else {
-          // Даем время для синхронизации после создания
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
+      // Buckets должны быть созданы через миграции или администратором
+      // Не пытаемся создавать их здесь из-за ограничений RLS
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
@@ -111,9 +79,12 @@ const ImageUpload = ({
         });
 
       if (uploadError) {
-        // Если bucket всё ещё не найден, даем понятное сообщение
+        // Если bucket не найден или нарушение RLS
         if (uploadError.message.includes('not found') || uploadError.message.includes('Bucket not found')) {
-          throw new Error(`Bucket "${bucket}" не найден. Пожалуйста, создайте его вручную в Supabase Storage (Settings > Storage > New bucket) или обратитесь к администратору.`);
+          throw new Error(t('image.upload.bucketNotFound'));
+        }
+        if (uploadError.message.includes('row-level security') || uploadError.message.includes('RLS')) {
+          throw new Error(t('image.upload.noPermission'));
         }
         throw uploadError;
       }
@@ -128,10 +99,10 @@ const ImageUpload = ({
       }
 
       onUploadComplete(urlData.publicUrl);
-      toast.success("Изображение загружено успешно");
+      toast.success(t('image.upload.success'));
     } catch (error: any) {
       console.error("Ошибка загрузки:", error);
-      toast.error(`Ошибка загрузки изображения: ${error.message}`);
+      toast.error(`${t('image.upload.error')}: ${error.message}`);
       setPreview(currentUrl || null);
     } finally {
       setUploading(false);
@@ -151,7 +122,7 @@ const ImageUpload = ({
 
   return (
     <div className="space-y-2">
-      <Label>Загрузить изображение</Label>
+      <Label>{t('image.upload.label')}</Label>
       <div className="flex flex-col gap-4">
         {preview && (
           <div className="relative inline-block">
@@ -193,12 +164,12 @@ const ImageUpload = ({
             className="gap-2"
           >
             <Upload className="w-4 h-4" />
-            {uploading ? "Загрузка..." : preview ? "Заменить" : "Выбрать файл"}
+            {uploading ? t('common.upload') : preview ? t('image.upload.replace') : t('image.upload.selectFile')}
           </Button>
           {!preview && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <ImageIcon className="w-4 h-4" />
-              <span>Макс. {maxSizeMB}MB</span>
+              <span>{t('image.upload.maxSize').replace('{size}', maxSizeMB.toString())}</span>
             </div>
           )}
         </div>

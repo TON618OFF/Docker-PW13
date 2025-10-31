@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import type { Track } from '@/types';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface MusicPlayerProps {
   track?: Track;
@@ -26,6 +27,7 @@ interface MusicPlayerProps {
 }
 
 const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
+  const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -45,7 +47,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
       // Проверяем, что filePath существует и является строкой
       if (!filePath || typeof filePath !== 'string') {
         console.error('Invalid file path:', filePath);
-        toast.error('Неверный путь к аудио файлу');
+        toast.error(t('musicPlayer.error.invalidPath'));
         return '';
       }
 
@@ -101,7 +103,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
 
       // Если это локальный путь, возвращаем пустую строку
       if (filePath.startsWith('local://')) {
-        toast.error('Локальные файлы не поддерживаются для воспроизведения');
+        toast.error(t('musicPlayer.error.localFiles'));
         return '';
       }
 
@@ -119,7 +121,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
 
       if (error) {
         console.error('Ошибка получения подписанного URL:', error);
-        toast.error('Ошибка загрузки аудио файла');
+        toast.error(t('musicPlayer.error.loadAudio'));
         return '';
       }
 
@@ -127,7 +129,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
       return data.signedUrl;
     } catch (error) {
       console.error('Ошибка получения подписанного URL:', error);
-      toast.error('Ошибка загрузки аудио файла');
+      toast.error(t('musicPlayer.error.loadAudio'));
       return '';
     }
   };
@@ -164,11 +166,11 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
           console.log('Audio URL is set:', signedUrl);
         } else {
           console.error('Failed to get audio URL');
-          toast.error('Не удалось получить ссылку на аудио файл');
+          toast.error(t('musicPlayer.error.noLink'));
         }
       } catch (error) {
         console.error('Ошибка загрузки трека:', error);
-        toast.error('Ошибка загрузки трека');
+        toast.error(t('musicPlayer.error.loadTrack'));
       } finally {
         setIsLoading(false);
       }
@@ -240,7 +242,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
         readyState: audio.readyState,
         src: audio.src
       });
-      toast.error('Ошибка воспроизведения аудио');
+      toast.error(t('musicPlayer.error.playback'));
       setIsPlaying(false);
     };
 
@@ -291,7 +293,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
         // Проверяем готовность аудио
         if (audio.readyState < 2) {
           console.log('Audio not ready, waiting...');
-          toast.info('Загрузка аудио...');
+          toast.info(t('musicPlayer.info.loading'));
           return;
         }
 
@@ -310,11 +312,11 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
         });
         
         if (error.name === 'NotSupportedError') {
-          toast.error('Формат аудио не поддерживается браузером');
+          toast.error(t('musicPlayer.error.format'));
         } else if (error.name === 'NotAllowedError') {
-          toast.error('Автовоспроизведение заблокировано браузером');
+          toast.error(t('musicPlayer.error.autoplay'));
         } else {
-          toast.error(`Ошибка воспроизведения: ${error.message}`);
+          toast.error(t('musicPlayer.error.playback'));
         }
       }
     }
@@ -385,7 +387,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
     return (
       <Card className="fixed bottom-0 left-0 right-0 p-4 bg-card/95 backdrop-blur border-t">
         <div className="text-center text-muted-foreground">
-          Выберите трек для воспроизведения
+          {t('musicPlayer.selectTrack')}
         </div>
       </Card>
     );

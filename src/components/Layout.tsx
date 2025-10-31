@@ -2,19 +2,20 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Music2, Library, ListMusic, BarChart3, User, LogOut, Globe } from "lucide-react";
+import { Music2, Library, ListMusic, BarChart3, User, LogOut, Globe, Crown } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import MusicPlayer from "./MusicPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
+import { useRole } from "@/hooks/useRole";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTranslation } from "@/hooks/useTranslation";
 
 const Layout = () => {
   const { t } = useTranslation();
@@ -23,6 +24,7 @@ const Layout = () => {
   const location = useLocation();
   const { currentTrack } = usePlayer();
   const { language, setLanguage } = useAppSettings();
+  const { canAccessAdmin, isDistributor } = useRole();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -58,6 +60,8 @@ const Layout = () => {
     { path: "/playlists", icon: ListMusic, label: t("common.playlists") },
     { path: "/analytics", icon: BarChart3, label: t("common.analytics") },
     { path: "/profile", icon: User, label: t("common.profile") },
+    ...(canAccessAdmin ? [{ path: "/admin", icon: Crown, label: t('layout.adminPanel') }] : []),
+    ...(isDistributor ? [{ path: "/applications", icon: User, label: t('layout.applications') }] : []),
   ];
 
   return (

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Music, User, Calendar, Search, Edit, Trash2 } from "lucide-react";
 import ImageUpload from "./ImageUpload";
+import { useRole } from "@/hooks/useRole";
 
 interface Artist {
   id: string;
@@ -36,6 +37,7 @@ interface Album {
 }
 
 const ArtistsAlbumsManager = () => {
+  const { canManageContent } = useRole();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,10 +133,12 @@ const ArtistsAlbumsManager = () => {
           <h2 className="text-2xl font-bold mb-2">Артисты и альбомы</h2>
           <p className="text-muted-foreground">Управление исполнителями и их альбомами</p>
         </div>
-        <div className="flex gap-2">
-          <CreateArtistDialog onArtistCreated={fetchData} />
-          <CreateAlbumDialog artists={artists} onAlbumCreated={fetchData} />
-        </div>
+        {canManageContent && (
+          <div className="flex gap-2">
+            <CreateArtistDialog onArtistCreated={fetchData} />
+            <CreateAlbumDialog artists={artists} onAlbumCreated={fetchData} />
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -167,7 +171,7 @@ const ArtistsAlbumsManager = () => {
               <p className="text-muted-foreground mb-6">
                 {searchQuery ? "Попробуйте изменить запрос" : "Добавьте первого артиста"}
               </p>
-              {!searchQuery && <CreateArtistDialog onArtistCreated={fetchData} />}
+              {!searchQuery && canManageContent && <CreateArtistDialog onArtistCreated={fetchData} />}
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -239,7 +243,7 @@ const ArtistsAlbumsManager = () => {
               <p className="text-muted-foreground mb-6">
                 {searchQuery ? "Попробуйте изменить запрос" : "Добавьте первый альбом"}
               </p>
-              {!searchQuery && <CreateAlbumDialog artists={artists} onAlbumCreated={fetchData} />}
+              {!searchQuery && canManageContent && <CreateAlbumDialog artists={artists} onAlbumCreated={fetchData} />}
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -450,10 +454,18 @@ const CreateAlbumDialog = ({
 
     setLoading(true);
     try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        toast.error("Необходимо войти в систему");
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from("albums").insert({
         album_title: formData.album_title.trim(),
         album_release_date: formData.album_release_date,
         artist_id: formData.artist_id,
+        created_by: user.id,
         album_cover_url: formData.album_cover_url.trim() || null,
         album_description: formData.album_description.trim() || null,
         is_public: true, // По умолчанию публичный

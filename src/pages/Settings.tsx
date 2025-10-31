@@ -10,16 +10,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Settings as SettingsIcon, User, Save, Eye, EyeOff, Heart, Music, Disc, ListMusic, Lock, Globe } from "lucide-react";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
+import { useRole } from "@/hooks/useRole";
 import DatabaseStatus from "@/components/DatabaseStatus";
 import DatabaseViewer from "@/components/DatabaseViewer";
 import StorageInitializer from "@/components/StorageInitializer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import ImageUpload from "@/components/ImageUpload";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { playTrack } = usePlayer();
   const { theme, language, setTheme, setLanguage } = useAppSettings();
+  const { isAdmin } = useRole();
+  const { t } = useTranslation();
   const [profile, setProfile] = useState({
     username: "",
     first_name: "",
@@ -175,7 +179,7 @@ const Settings = () => {
 
       // Проверяем уникальность username
       if (profile.username && profile.username.length < 3) {
-        toast.error("Имя пользователя должно быть минимум 3 символа");
+        toast.error(t('settings.usernameMinLength'));
         setSaving(false);
         return;
       }
@@ -203,12 +207,12 @@ const Settings = () => {
 
   const handlePasswordChange = async () => {
     if (!newPassword || newPassword.length < 6) {
-      toast.error("Новый пароль должен быть минимум 6 символов");
+      toast.error(t('settings.passwordMinLength'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("Пароли не совпадают");
+      toast.error(t('settings.passwordMismatch'));
       return;
     }
 
@@ -220,11 +224,11 @@ const Settings = () => {
 
       if (error) throw error;
 
-      toast.success("Пароль успешно изменён");
+      toast.success(t('settings.passwordChangeSuccess'));
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      toast.error(`Ошибка изменения пароля: ${error.message}`);
+      toast.error(`${t('settings.passwordChangeError')}: ${error.message}`);
     } finally {
       setChangingPassword(false);
     }
@@ -238,9 +242,9 @@ const Settings = () => {
 
       if (error) throw error;
       fetchFavorites();
-      toast.success(data.action === "added" ? "Трек добавлен в избранное" : "Трек удалён из избранного");
+      toast.success(data.action === "added" ? t('messages.addedToFavorites') : t('messages.removedFromFavorites'));
     } catch (error: any) {
-      toast.error(`Ошибка: ${error.message}`);
+      toast.error(`${t('messages.error')}: ${error.message}`);
     }
   };
 
@@ -252,9 +256,9 @@ const Settings = () => {
 
       if (error) throw error;
       fetchFavorites();
-      toast.success(data.action === "added" ? "Альбом добавлен в избранное" : "Альбом удалён из избранного");
+      toast.success(data.action === "added" ? t('messages.addedToFavorites') : t('messages.removedFromFavorites'));
     } catch (error: any) {
-      toast.error(`Ошибка: ${error.message}`);
+      toast.error(`${t('messages.error')}: ${error.message}`);
     }
   };
 
@@ -266,9 +270,9 @@ const Settings = () => {
 
       if (error) throw error;
       fetchFavorites();
-      toast.success(data.action === "added" ? "Плейлист добавлен в избранное" : "Плейлист удалён из избранного");
+      toast.success(data.action === "added" ? t('messages.addedToFavorites') : t('messages.removedFromFavorites'));
     } catch (error: any) {
-      toast.error(`Ошибка: ${error.message}`);
+      toast.error(`${t('messages.error')}: ${error.message}`);
     }
   };
 
@@ -285,43 +289,43 @@ const Settings = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
           <SettingsIcon className="w-8 h-8 text-primary" />
-          Настройки
+          {t('settings.title')}
         </h1>
-        <p className="text-muted-foreground">Управление вашим профилем и предпочтениями</p>
+        <p className="text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
 
       {/* Статус базы данных - только для не-слушателей */}
-      {userRole && userRole !== 'слушатель' && <DatabaseStatus />}
+      {isAdmin && <DatabaseStatus />}
 
       {/* Инициализация Storage - только для не-слушателей */}
-      {userRole && userRole !== 'слушатель' && <StorageInitializer />}
+      {isAdmin && <StorageInitializer />}
 
       {/* Просмотр базы данных - только для не-слушателей */}
-      {userRole && userRole !== 'слушатель' && <DatabaseViewer />}
+      {isAdmin && <DatabaseViewer />}
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Профиль</TabsTrigger>
-          <TabsTrigger value="favorites">Избранное</TabsTrigger>
-          <TabsTrigger value="appearance">Внешний вид</TabsTrigger>
-          <TabsTrigger value="security">Безопасность</TabsTrigger>
+          <TabsTrigger value="profile">{t('settings.profile')}</TabsTrigger>
+          <TabsTrigger value="favorites">{t('settings.favorites')}</TabsTrigger>
+          <TabsTrigger value="appearance">{t('settings.appearance')}</TabsTrigger>
+          <TabsTrigger value="security">{t('settings.password')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
       <Card className="p-6 space-y-6 bg-card/50 backdrop-blur">
           <div className="flex items-center gap-3 pb-4 border-b border-border">
             <User className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Профиль пользователя</h2>
+              <h2 className="text-xl font-semibold">{t('settings.profile')}</h2>
           </div>
 
             <div className="space-y-4">
           <div className="space-y-2">
-                <Label htmlFor="username">Имя пользователя *</Label>
+                <Label htmlFor="username">{t('profile.username')} {t('common.required')}</Label>
             <Input
                   id="username"
                   value={profile.username}
                   onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                  placeholder="username"
+                  placeholder={t('profile.username')}
                   required
                   minLength={3}
                   maxLength={50}
@@ -331,22 +335,22 @@ const Settings = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first_name">Имя</Label>
+                  <Label htmlFor="first_name">{t('profile.firstName')}</Label>
                   <Input
                     id="first_name"
                     value={profile.first_name}
                     onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                    placeholder="Имя"
+                    placeholder={t('settings.firstNamePlaceholder')}
                     className="bg-input border-border"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last_name">Фамилия</Label>
+                  <Label htmlFor="last_name">{t('profile.lastName')}</Label>
                   <Input
                     id="last_name"
                     value={profile.last_name}
                     onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
-                    placeholder="Фамилия"
+                    placeholder={t('settings.lastNamePlaceholder')}
                     className="bg-input border-border"
                   />
                 </div>
@@ -361,16 +365,16 @@ const Settings = () => {
                   disabled
                   className="bg-input border-border"
                 />
-                <p className="text-xs text-muted-foreground">Email нельзя изменить</p>
+                <p className="text-xs text-muted-foreground">{t('settings.emailCannotChange')}</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bio">О себе</Label>
+                <Label htmlFor="bio">{t('profile.bio')}</Label>
                 <textarea
                   id="bio"
                   value={profile.bio}
                   onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                  placeholder="Расскажите о себе..."
+                  placeholder={t('settings.bioPlaceholder')}
                   rows={4}
                   className="w-full px-3 py-2 border border-border rounded-md bg-input"
             />
@@ -394,7 +398,7 @@ const Settings = () => {
               className="w-full gap-2 bg-primary hover:bg-primary/90"
             >
               <Save className="w-4 h-4" />
-              {saving ? "Сохранение..." : "Сохранить изменения"}
+              {saving ? t('settings.saving') : t('settings.save')}
             </Button>
           </Card>
         </TabsContent>
@@ -403,22 +407,22 @@ const Settings = () => {
           <Card className="p-6 bg-card/50 backdrop-blur">
             <div className="flex items-center gap-3 pb-4 border-b border-border">
               <Heart className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Избранное</h2>
+              <h2 className="text-xl font-semibold">{t('settings.favorites')}</h2>
             </div>
 
             <Tabs defaultValue="tracks" className="mt-4">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="tracks">
                   <Music className="w-4 h-4 mr-2" />
-                  Треки ({favoriteTracks.length})
+                  {t('settings.favoriteTracks')} ({favoriteTracks.length})
                 </TabsTrigger>
                 <TabsTrigger value="albums">
                   <Disc className="w-4 h-4 mr-2" />
-                  Альбомы ({favoriteAlbums.length})
+                  {t('settings.favoriteAlbums')} ({favoriteAlbums.length})
                 </TabsTrigger>
                 <TabsTrigger value="playlists">
                   <ListMusic className="w-4 h-4 mr-2" />
-                  Плейлисты ({favoritePlaylists.length})
+                  {t('settings.favoritePlaylists')} ({favoritePlaylists.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -563,25 +567,25 @@ const Settings = () => {
           <Card className="p-6 space-y-6 bg-card/50 backdrop-blur">
             <div className="flex items-center gap-3 pb-4 border-b border-border">
               <SettingsIcon className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Внешний вид</h2>
+              <h2 className="text-xl font-semibold">{t('settings.appearance')}</h2>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="theme">Тема</Label>
+                <Label htmlFor="theme">{t('settings.theme')}</Label>
                 <Select value={theme} onValueChange={(value: Theme) => setTheme(value)}>
               <SelectTrigger id="theme" className="bg-input border-border">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="dark">Тёмная</SelectItem>
-                <SelectItem value="light">Светлая</SelectItem>
+                <SelectItem value="dark">{t('settings.dark')}</SelectItem>
+                <SelectItem value="light">{t('settings.light')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-                <Label htmlFor="language">Язык интерфейса</Label>
+                <Label htmlFor="language">{t('settings.language')}</Label>
                 <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
               <SelectTrigger id="language" className="bg-input border-border">
                 <SelectValue />
@@ -600,19 +604,19 @@ const Settings = () => {
           <Card className="p-6 space-y-6 bg-card/50 backdrop-blur">
             <div className="flex items-center gap-3 pb-4 border-b border-border">
               <Lock className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Безопасность</h2>
+              <h2 className="text-xl font-semibold">{t('settings.password')}</h2>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">Текущий пароль</Label>
+                <Label htmlFor="password">{t('settings.currentPassword')}</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={t('settings.passwordHidden')}
                     disabled
                     className="bg-input border-border pr-10"
                   />
@@ -626,18 +630,18 @@ const Settings = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Пароль скрыт по соображениям безопасности</p>
+                <p className="text-xs text-muted-foreground">{t('settings.passwordHidden')}</p>
           </div>
 
           <div className="space-y-2">
-                <Label htmlFor="new_password">Новый пароль</Label>
+                <Label htmlFor="new_password">{t('settings.newPassword')}</Label>
                 <div className="relative">
                   <Input
                     id="new_password"
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Введите новый пароль"
+                    placeholder={t('settings.newPasswordPlaceholder')}
                     className="bg-input border-border pr-10"
                   />
                   <Button
@@ -653,13 +657,13 @@ const Settings = () => {
         </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirm_password">Подтвердите новый пароль</Label>
+                <Label htmlFor="confirm_password">{t('settings.confirmPassword')}</Label>
                 <Input
                   id="confirm_password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Повторите новый пароль"
+                  placeholder={t('settings.confirmPasswordPlaceholder')}
                   className="bg-input border-border"
                 />
               </div>
@@ -669,16 +673,16 @@ const Settings = () => {
                 disabled={changingPassword || !newPassword || !confirmPassword}
                 className="w-full"
               >
-                {changingPassword ? "Изменение..." : "Изменить пароль"}
+                {changingPassword ? t('settings.changingPassword') : t('settings.changePasswordButton')}
               </Button>
 
               <div className="pt-4 border-t border-border">
-                <p className="text-sm text-muted-foreground mb-2">Забыли пароль?</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('settings.forgotPassword')}</p>
         <Button
                   onClick={async () => {
                     const user = (await supabase.auth.getUser()).data.user;
                     if (!user || !user.email) {
-                      toast.error("Email не найден");
+                      toast.error(t('messages.error'));
                       return;
                     }
 
@@ -687,12 +691,12 @@ const Settings = () => {
                     });
 
                     if (error) throw error;
-                    toast.success("Ссылка для восстановления пароля отправлена на email");
+                    toast.success(t('settings.resetPasswordSuccess'));
                   }}
                   variant="outline"
                   className="w-full"
                 >
-                  Отправить ссылку для восстановления пароля
+                  {t('settings.resetPassword')}
         </Button>
               </div>
             </div>

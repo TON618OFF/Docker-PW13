@@ -8,9 +8,13 @@ import Auth from "./pages/Auth";
 import Library from "./pages/Library";
 import Playlists from "./pages/Playlists";
 import PlaylistDetail from "./pages/PlaylistDetail";
+import AlbumDetail from "./pages/AlbumDetail";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import AdminPanel from "./components/AdminPanel";
+import ArtistApplicationsManager from "./components/ArtistApplicationsManager";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 import { PlayerProvider } from "./contexts/PlayerContext";
@@ -33,9 +37,26 @@ const App = () => (
                 <Route path="/library" element={<Library />} />
                 <Route path="/playlists" element={<Playlists />} />
                 <Route path="/playlists/:id" element={<PlaylistDetail />} />
+                <Route path="/albums/:id" element={<AlbumDetail />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route 
+                  path="/admin" 
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/applications" 
+                  element={
+                    <ProtectedRoute requireContentManagement>
+                      <ArtistApplicationsManager />
+                    </ProtectedRoute>
+                  } 
+                />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
