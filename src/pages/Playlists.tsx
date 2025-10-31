@@ -105,7 +105,7 @@ const Playlists = () => {
 
       if (error) throw error;
 
-      // Get song counts
+      // Get song counts and ensure user data is loaded
       const playlistsWithCounts = await Promise.all(
         (data || []).map(async (playlist) => {
           const { count } = await supabase
@@ -113,7 +113,18 @@ const Playlists = () => {
             .select("*", { count: "exact", head: true })
             .eq("playlist_id", playlist.id);
 
-          return { ...playlist, song_count: count || 0 };
+          // Если данные пользователя не загрузились, загружаем их отдельно
+          let userData = playlist.user;
+          if (!userData && playlist.user_id) {
+            const { data: user } = await supabase
+              .from("users")
+              .select("id, username")
+              .eq("id", playlist.user_id)
+              .single();
+            if (user) userData = user;
+          }
+
+          return { ...playlist, song_count: count || 0, user: userData };
         })
       );
 
@@ -188,14 +199,17 @@ const Playlists = () => {
                 )}
 
                 <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm text-muted-foreground">
-                      {playlist.song_count} {playlist.song_count === 1 ? 'трек' : t('playlists.tracks')}
+                      {playlist.song_count} {playlist.song_count === 1 ? t('playlists.track') : t('playlists.tracks')}
                     </p>
-                    {playlist.user && playlist.user_id !== currentUserId && (
-                      <span className="text-xs text-muted-foreground">
-                        • {playlist.user.username}
-                      </span>
+                    {playlist.user && (
+                      <>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t('playlists.owner')}: {playlist.user.username}
+                        </span>
+                      </>
                     )}
                   </div>
                   <div 

@@ -3,11 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Music, ArrowLeft, Play, Clock, Trash2, Shuffle } from "lucide-react";
+import { Music, ArrowLeft, Play, Clock, Trash2, Shuffle, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { usePlayer } from "@/contexts/PlayerContext";
 import type { Track } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const PlaylistDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,7 +43,13 @@ const PlaylistDetail = () => {
       // Загружаем данные плейлиста
       const { data: playlistData, error: playlistError } = await supabase
         .from("playlists")
-        .select("*")
+        .select(`
+          *,
+          user:users(
+            id,
+            username
+          )
+        `)
         .eq("id", id)
         .single();
 
@@ -54,7 +62,18 @@ const PlaylistDetail = () => {
         return;
       }
 
-      setPlaylistData(playlistData);
+      // Если данные пользователя не загрузились, загружаем их отдельно
+      let userData = playlistData.user;
+      if (!userData && playlistData.user_id) {
+        const { data: userInfo } = await supabase
+          .from("users")
+          .select("id, username")
+          .eq("id", playlistData.user_id)
+          .single();
+        if (userInfo) userData = userInfo;
+      }
+
+      setPlaylistData({ ...playlistData, user: userData });
 
       // Загружаем треки плейлиста
       const { data: tracksData, error: tracksError } = await supabase
@@ -163,6 +182,33 @@ const PlaylistDetail = () => {
     }
   };
 
+  const handleTogglePrivacy = async (isPublic: boolean) => {
+    if (!id || !currentUserId || playlist.user_id !== currentUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from("playlists")
+        .update({ is_public: isPublic })
+        .eq("id", id)
+        .eq("user_id", currentUserId);
+
+      if (error) throw error;
+
+      // Обновляем локальное состояние
+      setPlaylistData({ ...playlist, is_public: isPublic });
+      
+      toast.success(
+        isPublic 
+          ? t('playlists.privacyChanged.public') 
+          : t('playlists.privacyChanged.private')
+      );
+    } catch (error: any) {
+      toast.error(t('playlists.privacyChangeError', { message: error.message }));
+      // Откатываем изменение в UI в случае ошибки
+      setPlaylistData({ ...playlist, is_public: !isPublic });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -210,6 +256,14 @@ const PlaylistDetail = () => {
               <p className="text-muted-foreground mb-4">{playlist.playlist_description}</p>
             )}
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
+              {playlist.user && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span>{t('playlists.owner')}: {playlist.user.username}</span>
+                  </div>
+                  <span>•</span>
+                </>
+              )}
               <div className="flex items-center gap-2">
                 <Music className="w-4 h-4" />
                 <span>{tracks.length} {t('playlists.detail.tracksCount')}</span>
@@ -229,15 +283,34 @@ const PlaylistDetail = () => {
                 </>
               )}
             </div>
-            <div className="flex gap-3 pt-2">
-              <Button onClick={handlePlayAll} className="gap-2 bg-primary hover:bg-primary/90" disabled={tracks.length === 0}>
-                <Play className="w-4 h-4" />
-                {t('playlists.detail.playAll')}
-              </Button>
-              <Button onClick={handleShuffle} variant="outline" className="gap-2" disabled={tracks.length === 0}>
-                <Shuffle className="w-4 h-4" />
-                {t('playlists.detail.shuffle')}
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex gap-3">
+                <Button onClick={handlePlayAll} className="gap-2 bg-primary hover:bg-primary/90" disabled={tracks.length === 0}>
+                  <Play className="w-4 h-4" />
+                  {t('playlists.detail.playAll')}
+                </Button>
+                <Button onClick={handleShuffle} variant="outline" className="gap-2" disabled={tracks.length === 0}>
+                  <Shuffle className="w-4 h-4" />
+                  {t('playlists.detail.shuffle')}
+                </Button>
+              </div>
+              {currentUserId && playlist.user_id === currentUserId && (
+                <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-card/50">
+                  {playlist.is_public ? (
+                    <Globe className="w-4 h-4 text-primary" />
+                  ) : (
+                    <Lock className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <Label htmlFor="privacy-switch" className="text-sm cursor-pointer">
+                    {playlist.is_public ? t('playlists.public') : t('playlists.private')}
+                  </Label>
+                  <Switch
+                    id="privacy-switch"
+                    checked={playlist.is_public}
+                    onCheckedChange={handleTogglePrivacy}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1155,6 +1155,9 @@ SELECT TO authenticated USING (TRUE);
 CREATE POLICY "Users can view own profile" ON public.users FOR
 SELECT TO authenticated USING (auth.uid () = id);
 
+CREATE POLICY "Users can view public user info" ON public.users FOR
+SELECT TO authenticated USING (TRUE);
+
 CREATE POLICY "Users can update own profile" ON public.users FOR
 UPDATE TO authenticated USING (auth.uid () = id);
 

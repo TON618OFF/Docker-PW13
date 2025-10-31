@@ -205,10 +205,16 @@ const AlbumDetail = () => {
                   <img
                     src={album.artist.artist_image_url}
                     alt={album.artist.artist_name}
-                    className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
+                    className="w-10 h-10 rounded-full object-cover border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => album.artist?.id && navigate(`/artists/${album.artist.id}`)}
                   />
                 )}
-                <p className="text-xl text-muted-foreground">{album.artist?.artist_name}</p>
+                <p 
+                  className="text-xl text-muted-foreground hover:text-primary hover:underline cursor-pointer transition-colors"
+                  onClick={() => album.artist?.id && navigate(`/artists/${album.artist.id}`)}
+                >
+                  {album.artist?.artist_name}
+                </p>
               </div>
             </div>
 

@@ -9,6 +9,7 @@ import Library from "./pages/Library";
 import Playlists from "./pages/Playlists";
 import PlaylistDetail from "./pages/PlaylistDetail";
 import AlbumDetail from "./pages/AlbumDetail";
+import ArtistDetail from "./pages/ArtistDetail";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/playlists" element={<Playlists />} />
                 <Route path="/playlists/:id" element={<PlaylistDetail />} />
                 <Route path="/albums/:id" element={<AlbumDetail />} />
+                <Route path="/artists/:id" element={<ArtistDetail />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />

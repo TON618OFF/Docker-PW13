@@ -51,13 +51,37 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
 
   const loadInitialData = async () => {
     try {
-      const [artistsResult, genresResult] = await Promise.all([
-        supabase.from("artists").select("id, artist_name").order("artist_name"),
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const [genresResult] = await Promise.all([
         supabase.from("genres").select("id, genre_name").order("genre_name")
       ]);
 
-      if (artistsResult.data) setArtists(artistsResult.data);
       if (genresResult.data) setGenres(genresResult.data);
+
+      // Если пользователь артист, загружаем только его артиста
+      if (isArtist && !isDistributor) {
+        const { data: userArtist } = await supabase
+          .from("artists")
+          .select("id, artist_name")
+          .eq("user_id", user.id)
+          .single();
+
+        if (userArtist) {
+          setArtists([userArtist]);
+          // Автоматически устанавливаем артиста и загружаем его альбомы
+          handleArtistChange(userArtist.id);
+        }
+      } else {
+        // Для дистрибьютора загружаем всех артистов
+        const artistsResult = await supabase
+          .from("artists")
+          .select("id, artist_name")
+          .order("artist_name");
+        
+        if (artistsResult.data) setArtists(artistsResult.data);
+      }
     } catch (error) {
       console.error("Ошибка загрузки данных:", error);
     }
@@ -262,7 +286,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Выбор файла */}
           <div className="space-y-2">
-            <Label htmlFor="file">Аудио файл *</Label>
+            <Label htmlFor="file">{t('upload.selectTrack')} {t('common.required')}</Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
               <input
                 ref={fileInputRef}
@@ -285,19 +309,19 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Выбрать другой файл
+                    {t('upload.changeFile')}
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                  <p className="text-muted-foreground">Перетащите файл или нажмите для выбора</p>
+                  <p className="text-muted-foreground">{t('upload.dragFile')}</p>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Выбрать файл
+                    {t('upload.selectFile')}
                   </Button>
                 </div>
               )}
@@ -308,7 +332,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
           {loading && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Загрузка...</span>
+                <span>{t('upload.uploading')}</span>
                 <span>{Math.round(uploadProgress)}%</span>
               </div>
               <Progress value={uploadProgress} className="w-full" />
@@ -328,8 +352,12 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="artist">{t('upload.selectTrack')} {t('common.required')}</Label>
-            <Select value={formData.artist_id} onValueChange={handleArtistChange}>
+            <Label htmlFor="artist">{t('upload.selectArtist')} {t('common.required')}</Label>
+            <Select 
+              value={formData.artist_id} 
+              onValueChange={handleArtistChange}
+              disabled={isArtist && !isDistributor && artists.length === 1}
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t('upload.placeholder.selectArtist')} />
               </SelectTrigger>
@@ -344,7 +372,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="album">Альбом *</Label>
+            <Label htmlFor="album">{t('upload.selectAlbum')} {t('common.required')}</Label>
             <Select 
               value={formData.album_id} 
               onValueChange={(value) => setFormData({ ...formData, album_id: value })}
@@ -364,7 +392,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="genre">Жанр</Label>
+            <Label htmlFor="genre">{t('upload.selectGenre')}</Label>
             <Select 
               value={formData.genre_id} 
               onValueChange={(value) => setFormData({ ...formData, genre_id: value })}
@@ -389,7 +417,7 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
               onClick={() => setOpen(false)}
               className="flex-1"
             >
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"

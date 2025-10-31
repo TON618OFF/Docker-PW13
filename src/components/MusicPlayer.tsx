@@ -26,20 +26,31 @@ interface MusicPlayerProps {
   onTrackEnd?: () => void;
 }
 
-const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
+const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd }) => {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('none');
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { nextTrack, previousTrack, playlist } = usePlayer();
+  const { 
+    currentTrack, 
+    nextTrack, 
+    previousTrack, 
+    playlist, 
+    isShuffled, 
+    setIsShuffled,
+    shuffledPlaylist
+  } = usePlayer();
+
+  // Используем трек из контекста, если он есть, иначе из пропсов
+  const track = currentTrack || trackProp;
 
   // Получаем подписанный URL для приватного файла
   const getSignedUrl = async (filePath: string): Promise<string> => {
@@ -151,12 +162,48 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
     }
   };
 
+  // Проверяем, добавлен ли трек в избранное
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (!track) {
+        setIsFavorite(false);
+        return;
+      }
+      
+      try {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+          setIsFavorite(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('favorites_tracks')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('track_id', track.id)
+          .maybeSingle();
+
+        // maybeSingle возвращает null если записи нет, но не ошибку
+        setIsFavorite(!error && data !== null);
+      } catch (error) {
+        console.error('Error checking favorite:', error);
+        setIsFavorite(false);
+      }
+    };
+
+    checkFavorite();
+  }, [track]);
+
   // Загружаем трек
   useEffect(() => {
     if (!track || !track.track_audio_url) return;
 
     const loadTrack = async () => {
       setIsLoading(true);
+      setIsPlaying(false); // Останавливаем предыдущий трек
+      setCurrentTime(0); // Сбрасываем время
+      
       try {
         console.log('Loading track with URL:', track.track_audio_url);
         const signedUrl = await getSignedUrl(track.track_audio_url);
@@ -193,40 +240,67 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
       setDuration(audio.duration);
     };
 
-    const handleCanPlay = () => {
+    const handleCanPlay = async () => {
       console.log('Audio can play');
+      setIsLoading(false);
+      
+      // Автоматически начинаем воспроизведение, если трек готов
+      if (audio && !isPlaying && track) {
+        try {
+          await audio.play();
+          setIsPlaying(true);
+          console.log('Auto-playing track');
+        } catch (error: any) {
+          // Если автовоспроизведение заблокировано браузером, просто логируем
+          // Это нормальное поведение для многих браузеров
+          console.warn('Autoplay blocked or failed:', error?.message || error);
+          // Не показываем ошибку пользователю, так как это нормальное поведение браузера
+        }
+      }
     };
 
-    const handleEnded = () => {
+    const handleEnded = async () => {
       console.log('Audio ended, repeat mode:', repeatMode);
+      
+      const audio = audioRef.current;
+      if (!audio) return;
       
       if (repeatMode === 'one') {
         // Повторяем текущий трек
         console.log('Repeating current track');
-        const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = 0;
-          audio.play().catch(console.error);
+        audio.currentTime = 0;
+        try {
+          await audio.play();
+          setIsPlaying(true);
+        } catch (error) {
+          console.error('Error replaying track:', error);
         }
       } else if (repeatMode === 'all') {
-        // Переходим к следующему треку в плейлисте
+        // Переходим к следующему треку в плейлисте, или к первому если это был последний
         console.log('Repeating playlist - going to next track');
-        if (playlist.length > 0) {
+        const activePlaylist = isShuffled && shuffledPlaylist.length > 0 ? shuffledPlaylist : playlist;
+        if (activePlaylist.length > 0) {
+          // Вызываем nextTrack, который обновит currentTrack
           nextTrack();
         } else {
           // Если плейлист пустой, повторяем текущий трек
-          const audio = audioRef.current;
-          if (audio) {
-            audio.currentTime = 0;
-            audio.play().catch(console.error);
+          audio.currentTime = 0;
+          try {
+            await audio.play();
+            setIsPlaying(true);
+          } catch (error) {
+            console.error('Error replaying track:', error);
           }
         }
       } else {
         // Обычное поведение - переходим к следующему треку или останавливаем
         console.log('Normal playback - going to next track or stopping');
-        if (playlist.length > 0) {
+        const activePlaylist = isShuffled && shuffledPlaylist.length > 0 ? shuffledPlaylist : playlist;
+        if (activePlaylist.length > 1) {
+          // Если есть еще треки, переходим к следующему
           nextTrack();
         } else {
+          // Если это был последний трек, останавливаем
           setIsPlaying(false);
           setCurrentTime(0);
           onTrackEnd?.();
@@ -235,15 +309,39 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
     };
 
     const handleError = (e: Event) => {
-      console.error('Audio error:', e);
-      console.error('Audio error details:', {
-        error: audio.error,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-        src: audio.src
-      });
-      toast.error(t('musicPlayer.error.playback'));
-      setIsPlaying(false);
+      const audioError = audio.error;
+      if (audioError) {
+        let errorMessage = t('musicPlayer.error.playback');
+        
+        switch (audioError.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorMessage = t('musicPlayer.error.aborted');
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorMessage = t('musicPlayer.error.network');
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorMessage = t('musicPlayer.error.decode');
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = t('musicPlayer.error.unsupported');
+            break;
+          default:
+            errorMessage = t('musicPlayer.error.playback');
+        }
+        
+        console.error('Audio error:', {
+          code: audioError.code,
+          message: audioError.message || errorMessage,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+          src: audio.src
+        });
+        
+        toast.error(errorMessage);
+        setIsPlaying(false);
+        setIsLoading(false);
+      }
     };
 
     const handleLoadStart = () => {
@@ -271,7 +369,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
       audio.removeEventListener('loadstart', handleLoadStart);
       audio.removeEventListener('loadeddata', handleLoadedData);
     };
-  }, [audioUrl, onTrackEnd]);
+  }, [audioUrl, onTrackEnd, isPlaying, track, repeatMode, playlist, isShuffled, shuffledPlaylist]);
 
   // Управление воспроизведением
   const togglePlayPause = async () => {
@@ -376,6 +474,29 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
     }
   };
 
+  // Переключение избранного
+  const toggleFavorite = async () => {
+    if (!track) return;
+
+    try {
+      const { data, error } = await supabase.rpc("toggle_favorite_track", {
+        p_track_id: track.id,
+      });
+
+      if (error) throw error;
+
+      setIsFavorite(data.action === "added");
+      toast.success(
+        data.action === "added" 
+          ? t('messages.addedToFavorites') 
+          : t('messages.removedFromFavorites')
+      );
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      toast.error(`${t('messages.error')}: ${error.message}`);
+    }
+  };
+
   // Форматирование времени
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -397,10 +518,18 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
     <>
       <audio 
         ref={audioRef} 
-        src={audioUrl} 
+        src={audioUrl || undefined} 
         preload="metadata"
         crossOrigin="anonymous"
-        onError={(e) => console.error('Audio element error:', e)}
+        onError={(e) => {
+          // Ошибка уже обрабатывается в useEffect через addEventListener
+          // Этот обработчик нужен для React, но логирование дублируется
+          const audio = audioRef.current;
+          if (audio?.error) {
+            // Ошибка уже обработана в handleError из useEffect
+            console.warn('Audio element error event triggered');
+          }
+        }}
       />
       
       <Card className="fixed bottom-0 left-0 right-0 p-4 bg-card/95 backdrop-blur border-t shadow-player">
@@ -428,8 +557,14 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
               </p>
             </div>
 
-            <Button variant="ghost" size="sm">
-              <Heart className="w-4 h-4" />
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={toggleFavorite}
+              className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
+              title={isFavorite ? t('messages.removeFromFavorites') : t('messages.addToFavorites')}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
             </Button>
             
             <Button variant="ghost" size="sm">
@@ -446,6 +581,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
                 size="sm"
                 onClick={() => setIsShuffled(!isShuffled)}
                 className={isShuffled ? 'text-primary' : ''}
+                title={isShuffled ? t('musicPlayer.shuffleOff') : t('musicPlayer.shuffleOn')}
               >
                 <Shuffle className="w-4 h-4" />
               </Button>
@@ -482,9 +618,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track, onTrackEnd }) => {
                 }}
                 className={repeatMode !== 'none' ? 'text-primary' : ''}
                 title={
-                  repeatMode === 'none' ? 'Повтор: Выключен' :
-                  repeatMode === 'one' ? 'Повтор: Один трек' :
-                  'Повтор: Весь плейлист'
+                  repeatMode === 'none' ? t('musicPlayer.repeatOff') :
+                  repeatMode === 'one' ? t('musicPlayer.repeatOne') :
+                  t('musicPlayer.repeatAll')
                 }
               >
                 <div className="relative">

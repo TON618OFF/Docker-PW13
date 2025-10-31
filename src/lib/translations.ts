@@ -56,9 +56,15 @@ export type TranslationKey =
   | 'playlists.public'
   | 'playlists.empty'
   | 'playlists.tracks'
+  | 'playlists.track'
+  | 'playlists.owner'
+  | 'playlists.private'
   | 'playlists.addSong'
   | 'playlists.confirmRemove'
   | 'playlists.remove'
+  | 'playlists.privacyChanged.public'
+  | 'playlists.privacyChanged.private'
+  | 'playlists.privacyChangeError'
   
   // Аналитика
   | 'analytics.title'
@@ -158,6 +164,7 @@ export type TranslationKey =
   // Загрузка треков
   | 'upload.title'
   | 'upload.selectTrack'
+  | 'upload.selectArtist'
   | 'upload.trackTitle'
   | 'upload.selectAlbum'
   | 'upload.selectGenre'
@@ -165,6 +172,9 @@ export type TranslationKey =
   | 'upload.uploading'
   | 'upload.success'
   | 'upload.createAlbumFirst'
+  | 'upload.selectFile'
+  | 'upload.changeFile'
+  | 'upload.dragFile'
   
   // Плейлисты детали
   | 'playlists.detail.title'
@@ -189,6 +199,24 @@ export type TranslationKey =
   | 'albums.detail.totalPlays'
   | 'albums.detail.tracksCount'
   
+  // Артист детали
+  | 'artist.notFound'
+  | 'artist.loadError'
+  | 'artist.backToLibrary'
+  | 'artist.profile'
+  | 'artist.tracks'
+  | 'artist.albums'
+  | 'artist.allAlbums'
+  | 'artist.playlists'
+  | 'artist.allPlaylists'
+  | 'artist.allTracks'
+  | 'artist.emptyTracks'
+  | 'artist.noTracks'
+  | 'artist.noAlbum'
+  | 'artist.totalPlays'
+  | 'artist.playAll'
+  | 'artist.shuffle'
+  
   // Общие сообщения
   | 'messages.success'
   | 'messages.error'
@@ -199,6 +227,14 @@ export type TranslationKey =
   | 'messages.updated'
   | 'messages.addedToFavorites'
   | 'messages.removedFromFavorites'
+  | 'messages.addToFavorites'
+  | 'messages.removeFromFavorites'
+  
+  | 'musicPlayer.shuffleOn'
+  | 'musicPlayer.shuffleOff'
+  | 'musicPlayer.repeatOff'
+  | 'musicPlayer.repeatOne'
+  | 'musicPlayer.repeatAll'
   
   // Дополнительные ключи для компонентов
   | 'albums.manager.title'
@@ -505,7 +541,13 @@ export const translations: Translations = {
     'playlists.public': 'Публичный плейлист',
     'playlists.empty': 'Нет плейлистов',
     'playlists.tracks': 'треков',
+    'playlists.track': 'трек',
+    'playlists.owner': 'Владелец',
+    'playlists.private': 'Приватный',
     'playlists.addSong': 'Добавить трек',
+    'playlists.privacyChanged.public': 'Плейлист стал публичным',
+    'playlists.privacyChanged.private': 'Плейлист стал приватным',
+    'playlists.privacyChangeError': 'Ошибка изменения приватности: {message}',
     'playlists.confirmRemove': 'Вы уверены, что хотите удалить этот плейлист?',
     'playlists.remove': 'Удалить плейлист',
     
@@ -609,6 +651,7 @@ export const translations: Translations = {
     // Загрузка треков
     'upload.title': 'Загрузить трек',
     'upload.selectTrack': 'Выбрать аудио файл',
+    'upload.selectArtist': 'Исполнитель',
     'upload.trackTitle': 'Название трека',
     'upload.selectAlbum': 'Выберите альбом',
     'upload.selectGenre': 'Выберите жанр',
@@ -616,6 +659,9 @@ export const translations: Translations = {
     'upload.uploading': 'Загрузка...',
     'upload.success': 'Трек загружен успешно',
     'upload.createAlbumFirst': 'Перед загрузкой трека сначала создайте альбом в разделе "Артисты и альбомы" библиотеки',
+    'upload.selectFile': 'Выбрать файл',
+    'upload.changeFile': 'Выбрать другой файл',
+    'upload.dragFile': 'Перетащите файл или нажмите для выбора',
     
     // Плейлисты детали
     'playlists.detail.title': 'Плейлист',
@@ -640,6 +686,24 @@ export const translations: Translations = {
     'albums.detail.totalPlays': 'прослушиваний',
     'albums.detail.tracksCount': 'треков',
     
+    // Артист детали
+    'artist.notFound': 'Артист не найден',
+    'artist.loadError': 'Ошибка загрузки артиста',
+    'artist.backToLibrary': 'Назад к библиотеке',
+    'artist.profile': 'Профиль',
+    'artist.tracks': 'треков',
+    'artist.albums': 'альбомов',
+    'artist.allAlbums': 'Все альбомы',
+    'artist.playlists': 'Плейлисты',
+    'artist.allPlaylists': 'Все плейлисты',
+    'artist.allTracks': 'Все треки',
+    'artist.emptyTracks': 'У артиста пока нет треков',
+    'artist.noTracks': 'Нет треков для воспроизведения',
+    'artist.noAlbum': 'Без альбома',
+    'artist.totalPlays': 'прослушиваний',
+    'artist.playAll': 'Слушать все',
+    'artist.shuffle': 'Перемешать',
+    
     // Общие сообщения
     'messages.success': 'Операция выполнена успешно',
     'messages.error': 'Произошла ошибка',
@@ -650,6 +714,8 @@ export const translations: Translations = {
     'messages.updated': 'Обновлено успешно',
     'messages.addedToFavorites': 'Добавлено в избранное',
     'messages.removedFromFavorites': 'Удалено из избранного',
+    'messages.addToFavorites': 'Добавить в избранное',
+    'messages.removeFromFavorites': 'Удалить из избранного',
     
     // Альбомы менеджер
     'albums.manager.title': 'Альбомы',
@@ -1000,10 +1066,19 @@ export const translations: Translations = {
     'musicPlayer.error.noLink': 'Не удалось получить ссылку на аудио файл',
     'musicPlayer.error.loadTrack': 'Ошибка загрузки трека',
     'musicPlayer.error.playback': 'Ошибка воспроизведения аудио',
+    'musicPlayer.error.aborted': 'Воспроизведение было прервано',
+    'musicPlayer.error.network': 'Ошибка сети при загрузке аудио',
+    'musicPlayer.error.decode': 'Ошибка декодирования аудио файла',
+    'musicPlayer.error.unsupported': 'Формат аудио не поддерживается',
     'musicPlayer.info.loading': 'Загрузка аудио...',
     'musicPlayer.error.format': 'Формат аудио не поддерживается браузером',
     'musicPlayer.error.autoplay': 'Автовоспроизведение заблокировано браузером',
     'musicPlayer.selectTrack': 'Выберите трек для воспроизведения',
+    'musicPlayer.shuffleOn': 'Включить перемешивание',
+    'musicPlayer.shuffleOff': 'Выключить перемешивание',
+    'musicPlayer.repeatOff': 'Повтор: Выключен',
+    'musicPlayer.repeatOne': 'Повтор: Один трек',
+    'musicPlayer.repeatAll': 'Повтор: Весь плейлист',
   },
   en: {
     // Common
@@ -1064,7 +1139,13 @@ export const translations: Translations = {
     'playlists.public': 'Public playlist',
     'playlists.empty': 'No playlists',
     'playlists.tracks': 'tracks',
+    'playlists.track': 'track',
+    'playlists.owner': 'Owner',
+    'playlists.private': 'Private',
     'playlists.addSong': 'Add track',
+    'playlists.privacyChanged.public': 'Playlist is now public',
+    'playlists.privacyChanged.private': 'Playlist is now private',
+    'playlists.privacyChangeError': 'Error changing privacy: {message}',
     'playlists.confirmRemove': 'Are you sure you want to delete this playlist?',
     'playlists.remove': 'Remove playlist',
     
@@ -1169,6 +1250,7 @@ export const translations: Translations = {
     // Upload
     'upload.title': 'Upload track',
     'upload.selectTrack': 'Select audio file',
+    'upload.selectArtist': 'Artist',
     'upload.trackTitle': 'Track title',
     'upload.selectAlbum': 'Select album',
     'upload.selectGenre': 'Select genre',
@@ -1176,6 +1258,9 @@ export const translations: Translations = {
     'upload.uploading': 'Uploading...',
     'upload.success': 'Track uploaded successfully',
     'upload.createAlbumFirst': 'Before uploading a track, first create an album in the "Artists and Albums" section of the library',
+    'upload.selectFile': 'Select file',
+    'upload.changeFile': 'Select another file',
+    'upload.dragFile': 'Drag file here or click to select',
     
     // Playlists detail
     'playlists.detail.title': 'Playlist',
@@ -1200,6 +1285,24 @@ export const translations: Translations = {
     'albums.detail.totalPlays': 'plays',
     'albums.detail.tracksCount': 'tracks',
     
+    // Artist detail
+    'artist.notFound': 'Artist not found',
+    'artist.loadError': 'Error loading artist',
+    'artist.backToLibrary': 'Back to library',
+    'artist.profile': 'Profile',
+    'artist.tracks': 'tracks',
+    'artist.albums': 'albums',
+    'artist.allAlbums': 'All albums',
+    'artist.playlists': 'Playlists',
+    'artist.allPlaylists': 'All playlists',
+    'artist.allTracks': 'All tracks',
+    'artist.emptyTracks': 'Artist has no tracks yet',
+    'artist.noTracks': 'No tracks to play',
+    'artist.noAlbum': 'No album',
+    'artist.totalPlays': 'plays',
+    'artist.playAll': 'Play all',
+    'artist.shuffle': 'Shuffle',
+    
     // Common messages
     'messages.success': 'Operation completed successfully',
     'messages.error': 'An error occurred',
@@ -1210,6 +1313,8 @@ export const translations: Translations = {
     'messages.updated': 'Updated successfully',
     'messages.addedToFavorites': 'Added to favorites',
     'messages.removedFromFavorites': 'Removed from favorites',
+    'messages.addToFavorites': 'Add to favorites',
+    'messages.removeFromFavorites': 'Remove from favorites',
     
     // Albums manager
     'albums.manager.title': 'Albums',
@@ -1543,9 +1648,18 @@ export const translations: Translations = {
     'musicPlayer.error.noLink': 'Failed to get audio file link',
     'musicPlayer.error.loadTrack': 'Error loading track',
     'musicPlayer.error.playback': 'Audio playback error',
+    'musicPlayer.error.aborted': 'Playback was aborted',
+    'musicPlayer.error.network': 'Network error loading audio',
+    'musicPlayer.error.decode': 'Audio decoding error',
+    'musicPlayer.error.unsupported': 'Audio format not supported',
     'musicPlayer.info.loading': 'Loading audio...',
     'musicPlayer.error.format': 'Audio format not supported by browser',
     'musicPlayer.error.autoplay': 'Autoplay blocked by browser',
     'musicPlayer.selectTrack': 'Select a track to play',
+    'musicPlayer.shuffleOn': 'Enable shuffle',
+    'musicPlayer.shuffleOff': 'Disable shuffle',
+    'musicPlayer.repeatOff': 'Repeat: Off',
+    'musicPlayer.repeatOne': 'Repeat: One',
+    'musicPlayer.repeatAll': 'Repeat: All',
   },
 };

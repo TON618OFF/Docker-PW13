@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useRole } from "@/hooks/useRole";
 
 const Library = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { canManageContent } = useRole();
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -251,8 +253,34 @@ const Library = () => {
                 <div className="flex-1 min-w-0">
                       <h3 className="font-semibold truncate">{track.track_title}</h3>
                   <p className="text-sm text-muted-foreground truncate">
-                        {track.album.artist.artist_name} • {track.album.album_title}
-                      </p>
+                        {track.album?.artist?.id ? (
+                          <span 
+                            className="hover:text-primary hover:underline cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/artists/${track.album.artist.id}`);
+                            }}
+                          >
+                            {track.album.artist.artist_name}
+                          </span>
+                        ) : (
+                          <span>{track.album?.artist?.artist_name || 'Неизвестный артист'}</span>
+                        )}
+                        {' • '}
+                        {track.album?.id ? (
+                          <span 
+                            className="hover:text-primary hover:underline cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/albums/${track.album.id}`);
+                            }}
+                          >
+                            {track.album.album_title}
+                          </span>
+                        ) : (
+                          <span>{track.album?.album_title || 'Без альбома'}</span>
+                        )}
+                  </p>
                       {track.genres.length > 0 && (
                         <div className="flex gap-1 mt-1">
                           {track.genres.slice(0, 2).map((genre) => (

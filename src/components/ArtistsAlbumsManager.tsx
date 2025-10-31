@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ interface Album {
 }
 
 const ArtistsAlbumsManager = () => {
+  const navigate = useNavigate();
   const { canManageContent } = useRole();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -176,21 +178,56 @@ const ArtistsAlbumsManager = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredArtists.map((artist) => (
-                <Card key={artist.id} className="group hover:bg-card/80 transition-all">
+                <Card 
+                  key={artist.id} 
+                  className="group hover:bg-card/80 transition-all cursor-pointer"
+                  onClick={(e) => {
+                    // Проверяем, что клик не был на кнопку удаления или редактирования
+                    const target = e.target as HTMLElement;
+                    if (!target.closest('button') && !target.closest('[data-action="edit"]')) {
+                      navigate(`/artists/${artist.id}`);
+                    }
+                  }}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-3">
-                      {artist.artist_image_url && (
+                      {artist.artist_image_url ? (
                         <img
                           src={artist.artist_image_url}
                           alt={artist.artist_name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-primary/20"
+                          className="w-12 h-12 rounded-full object-cover border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/artists/${artist.id}`);
+                          }}
                         />
+                      ) : (
+                        <div 
+                          className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors flex items-center justify-center"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/artists/${artist.id}`);
+                          }}
+                        >
+                          <User className="w-6 h-6 text-primary/40" />
+                        </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg truncate">{artist.artist_name}</CardTitle>
+                          <CardTitle 
+                            className="text-lg truncate hover:text-primary transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/artists/${artist.id}`);
+                            }}
+                          >
+                            {artist.artist_name}
+                          </CardTitle>
                           {artist.isOwner && (
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                            <div 
+                              className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <EditArtistDialog artist={artist} onArtistUpdated={fetchData} />
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
                                 <Trash2 className="w-4 h-4" />
