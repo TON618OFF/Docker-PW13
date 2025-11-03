@@ -75,6 +75,13 @@ export type TranslationKey =
   | 'analytics.avgDuration'
   | 'analytics.exportCSV'
   | 'analytics.exportPDF'
+  | 'analytics.charts.dailyListens'
+  | 'analytics.charts.dailyDuration'
+  | 'analytics.charts.topTracks'
+  | 'analytics.charts.genres'
+  | 'analytics.charts.listens'
+  | 'analytics.charts.durationMinutes'
+  | 'analytics.charts.noData'
   
   // Профиль
   | 'profile.title'
@@ -90,6 +97,16 @@ export type TranslationKey =
   | 'profile.favorites'
   | 'profile.registration'
   | 'profile.lastLogin'
+  | 'profile.listeningHistory'
+  | 'profile.listeningHistory.title'
+  | 'profile.listeningHistory.empty'
+  | 'profile.listeningHistory.emptyMessage'
+  | 'profile.listeningHistory.loading'
+  | 'profile.listeningHistory.played'
+  | 'profile.listeningHistory.completed'
+  | 'profile.listeningHistory.notCompleted'
+  | 'profile.listeningHistory.duration'
+  | 'profile.listeningHistory.error'
   
   // Настройки
   | 'settings.title'
@@ -444,7 +461,22 @@ export type TranslationKey =
   | 'analytics.csvHeaders.album'
   | 'analytics.csvHeaders.duration'
   | 'analytics.csvHeaders.played'
+  | 'analytics.csvHeaders.completed'
+  | 'analytics.csvHeaders.rank'
+  | 'analytics.csvHeaders.genre'
+  | 'analytics.charts.duration'
+  | 'analytics.charts.count'
   | 'analytics.unknown'
+  | 'analytics.exporting'
+  | 'analytics.reportTitle'
+  | 'analytics.generatedOn'
+  | 'analytics.statistics'
+  | 'analytics.listeningHistory'
+  | 'analytics.stats.totalListens'
+  | 'analytics.stats.totalDuration'
+  | 'analytics.stats.totalTracks'
+  | 'analytics.stats.avgDuration'
+  | 'analytics.errorExport'
   
   | 'auth.welcome'
   | 'auth.usernameLength'
@@ -460,13 +492,84 @@ export type TranslationKey =
   | 'admin.loadError'
   | 'admin.roleNotFound'
   | 'admin.roleUpdateSuccess'
+  | 'admin.roleUpdateError'
   | 'admin.deleteConfirm'
   | 'admin.deleteSuccess'
+  | 'admin.deleteError'
   | 'admin.searchPlaceholder'
   | 'admin.role.listener'
   | 'admin.role.distributor'
   | 'admin.role.admin'
   | 'admin.role.artist'
+  | 'admin.role.moderator'
+  | 'admin.title'
+  | 'admin.subtitle'
+  | 'admin.stats.users'
+  | 'admin.stats.tracks'
+  | 'admin.stats.playlists'
+  | 'admin.stats.artists'
+  | 'admin.stats.albums'
+  | 'admin.userManagement'
+  | 'admin.registration'
+  | 'admin.unknownError'
+  | 'admin.dbStatus.title'
+  | 'admin.dbStatus.update'
+  | 'admin.dbStatus.checking'
+  | 'admin.dbStatus.checkingConnection'
+  | 'admin.dbStatus.connected'
+  | 'admin.dbStatus.notConnected'
+  | 'admin.dbStatus.active'
+  | 'admin.dbStatus.error'
+  | 'admin.dbStatus.errorTitle'
+  | 'admin.dbStatus.errorMessage'
+  | 'admin.dbStatus.stats.users'
+  | 'admin.dbStatus.stats.tracks'
+  | 'admin.dbStatus.stats.playlists'
+  | 'admin.dbStatus.stats.listenHistory'
+  | 'admin.dbStatus.setup.title'
+  | 'admin.dbStatus.setup.step1'
+  | 'admin.dbStatus.setup.step2'
+  | 'admin.dbStatus.setup.step3'
+  | 'admin.dbStatus.setup.step4'
+  | 'admin.dbStatus.setup.step5'
+  | 'admin.dbStatus.setup.step6'
+  | 'admin.storage.title'
+  | 'admin.storage.check'
+  | 'admin.storage.checking'
+  | 'admin.storage.initialize'
+  | 'admin.storage.initializing'
+  | 'admin.storage.bucket.songs'
+  | 'admin.storage.bucket.covers'
+  | 'admin.storage.status.checking'
+  | 'admin.storage.status.created'
+  | 'admin.storage.status.missing'
+  | 'admin.storage.warning.title'
+  | 'admin.storage.warning.message'
+  | 'admin.storage.success.title'
+  | 'admin.storage.success.message'
+  | 'admin.storage.info.title'
+  | 'admin.storage.info.step1'
+  | 'admin.storage.info.step2'
+  | 'admin.storage.info.step3'
+  | 'admin.storage.success.toast'
+  | 'admin.storage.error.toast'
+  | 'admin.dbViewer.title'
+  | 'admin.dbViewer.searchPlaceholder'
+  | 'admin.dbViewer.table'
+  | 'admin.dbViewer.totalRecords'
+  | 'admin.dbViewer.shown'
+  | 'admin.dbViewer.loading'
+  | 'admin.dbViewer.noData'
+  | 'admin.dbViewer.noResults'
+  | 'admin.dbViewer.error'
+  | 'admin.dbViewer.tables.tracks'
+  | 'admin.dbViewer.tables.playlists'
+  | 'admin.dbViewer.tables.users'
+  | 'admin.dbViewer.tables.listeningHistory'
+  | 'admin.dbViewer.tables.playlistTracks'
+  | 'admin.dbViewer.tables.artists'
+  | 'admin.dbViewer.tables.albums'
+  | 'admin.dbViewer.tables.roles'
   
   | 'common.track'
   | 'common.upload'
@@ -575,6 +678,16 @@ export const translations: Translations = {
     'profile.favorites': 'В избранном',
     'profile.registration': 'Регистрация',
     'profile.lastLogin': 'Последний вход',
+    'profile.listeningHistory': 'История прослушиваний',
+    'profile.listeningHistory.title': 'История прослушиваний',
+    'profile.listeningHistory.empty': 'История пуста',
+    'profile.listeningHistory.emptyMessage': 'Вы еще не прослушали ни одного трека',
+    'profile.listeningHistory.loading': 'Загрузка истории...',
+    'profile.listeningHistory.played': 'Прослушано',
+    'profile.listeningHistory.completed': 'Прослушано полностью',
+    'profile.listeningHistory.notCompleted': 'Не завершено',
+    'profile.listeningHistory.duration': 'Длительность',
+    'profile.listeningHistory.error': 'Ошибка загрузки истории',
     
     // Настройки
     'settings.title': 'Настройки',
@@ -1004,8 +1117,30 @@ export const translations: Translations = {
     'analytics.csvHeaders.album': 'Альбом',
     'analytics.csvHeaders.duration': 'Длительность трека',
     'analytics.csvHeaders.played': 'Прослушано секунд',
+    'analytics.csvHeaders.completed': 'Завершено',
+    'analytics.csvHeaders.rank': 'Место',
+    'analytics.csvHeaders.genre': 'Жанр',
     'analytics.unknown': 'Неизвестно',
+    'analytics.exporting': 'Экспорт данных...',
+    'analytics.reportTitle': 'Отчет по аналитике прослушиваний',
+    'analytics.generatedOn': 'Сгенерировано',
+    'analytics.statistics': 'Статистика',
+    'analytics.listeningHistory': 'История прослушиваний',
+    'analytics.stats.totalListens': 'Всего прослушиваний',
+    'analytics.stats.totalDuration': 'Общая длительность',
+    'analytics.stats.totalTracks': 'Всего треков',
+    'analytics.stats.avgDuration': 'Средняя длительность',
+    'analytics.errorExport': 'Ошибка экспорта: {message}',
     'analytics.title': 'Аналитика',
+    'analytics.charts.dailyListens': 'Прослушивания по дням',
+    'analytics.charts.dailyDuration': 'Время прослушивания по дням',
+    'analytics.charts.topTracks': 'Топ треков',
+    'analytics.charts.genres': 'Прослушивания по жанрам',
+    'analytics.charts.listens': 'Прослушиваний',
+    'analytics.charts.duration': 'Длительность (минуты)',
+    'analytics.charts.durationMinutes': 'Минут',
+    'analytics.charts.count': 'Количество',
+    'analytics.charts.noData': 'Нет данных для отображения',
     'analytics.subtitle': 'Статистика ваших прослушиваний',
     'analytics.exportCSV': 'Экспорт CSV',
     'analytics.exportPDF': 'Экспорт PDF',
@@ -1039,17 +1174,84 @@ export const translations: Translations = {
     'admin.loadError': 'Ошибка загрузки данных',
     'admin.roleNotFound': 'Роль не найдена',
     'admin.roleUpdateSuccess': 'Роль пользователя обновлена',
+    'admin.roleUpdateError': 'Ошибка обновления роли',
     'admin.deleteConfirm': 'Вы уверены, что хотите удалить этого пользователя?',
     'admin.deleteSuccess': 'Пользователь удалён',
-    'admin.roleUpdateError': 'Ошибка обновления роли',
     'admin.deleteError': 'Ошибка удаления пользователя',
     'admin.searchPlaceholder': 'Поиск пользователей...',
     'admin.role.listener': 'Слушатель',
     'admin.role.distributor': 'Дистрибьютор',
     'admin.role.admin': 'Администратор',
     'admin.role.artist': 'Артист',
+    'admin.role.moderator': 'Модератор',
     'admin.title': 'Админ-панель',
     'admin.subtitle': 'Управление пользователями и контентом',
+    'admin.stats.users': 'Пользователи',
+    'admin.stats.tracks': 'Треки',
+    'admin.stats.playlists': 'Плейлисты',
+    'admin.stats.artists': 'Артисты',
+    'admin.stats.albums': 'Альбомы',
+    'admin.userManagement': 'Управление пользователями',
+    'admin.registration': 'Регистрация',
+    'admin.unknownError': 'Неизвестная ошибка',
+    'admin.dbStatus.title': 'Статус базы данных',
+    'admin.dbStatus.update': 'Обновить',
+    'admin.dbStatus.checking': 'Проверка...',
+    'admin.dbStatus.checkingConnection': 'Проверка подключения...',
+    'admin.dbStatus.connected': 'Подключено',
+    'admin.dbStatus.notConnected': 'Не подключено',
+    'admin.dbStatus.active': 'Активно',
+    'admin.dbStatus.error': 'Ошибка',
+    'admin.dbStatus.errorTitle': 'Ошибка подключения:',
+    'admin.dbStatus.errorMessage': 'Проверьте настройки подключения к Supabase',
+    'admin.dbStatus.stats.users': 'Пользователи',
+    'admin.dbStatus.stats.tracks': 'Треки',
+    'admin.dbStatus.stats.playlists': 'Плейлисты',
+    'admin.dbStatus.stats.listenHistory': 'Прослушивания',
+    'admin.dbStatus.setup.title': 'Как настроить Supabase:',
+    'admin.dbStatus.setup.step1': 'Создайте аккаунт на',
+    'admin.dbStatus.setup.step2': 'Создайте новый проект',
+    'admin.dbStatus.setup.step3': 'Скопируйте URL проекта и anon key',
+    'admin.dbStatus.setup.step4': 'Создайте файл .env.local в корне проекта',
+    'admin.dbStatus.setup.step5': 'Добавьте переменные VITE_SUPABASE_URL и VITE_SUPABASE_PUBLISHABLE_KEY',
+    'admin.dbStatus.setup.step6': 'Запустите миграции: npx supabase db push',
+    'admin.storage.title': 'Инициализация Storage',
+    'admin.storage.check': 'Проверить',
+    'admin.storage.checking': 'Проверка...',
+    'admin.storage.initialize': 'Инициализировать',
+    'admin.storage.initializing': 'Инициализация...',
+    'admin.storage.bucket.songs': 'Bucket "songs"',
+    'admin.storage.bucket.covers': 'Bucket "covers"',
+    'admin.storage.status.checking': 'Проверка...',
+    'admin.storage.status.created': 'Создан',
+    'admin.storage.status.missing': 'Отсутствует',
+    'admin.storage.warning.title': 'Storage не настроен',
+    'admin.storage.warning.message': 'Для загрузки треков необходимо создать bucket\'ы в Supabase Storage. Нажмите "Инициализировать" для автоматического создания.',
+    'admin.storage.success.title': 'Storage настроен',
+    'admin.storage.success.message': 'Все необходимые bucket\'ы созданы. Теперь можно загружать треки и обложки.',
+    'admin.storage.info.title': 'Что делает инициализация:',
+    'admin.storage.info.step1': 'Создает bucket "songs" для хранения аудио файлов (до 50MB)',
+    'admin.storage.info.step2': 'Создает bucket "covers" для хранения обложек (до 5MB)',
+    'admin.storage.info.step3': 'Настраивает права доступа и ограничения файлов',
+    'admin.storage.success.toast': 'Storage инициализирован успешно!',
+    'admin.storage.error.toast': 'Ошибка инициализации Storage',
+    'admin.dbViewer.title': 'Просмотр базы данных',
+    'admin.dbViewer.searchPlaceholder': 'Поиск по данным...',
+    'admin.dbViewer.table': 'Таблица:',
+    'admin.dbViewer.totalRecords': 'Всего записей:',
+    'admin.dbViewer.shown': 'Показано:',
+    'admin.dbViewer.loading': 'Загрузка данных...',
+    'admin.dbViewer.noData': 'Нет данных в таблице',
+    'admin.dbViewer.noResults': 'Данные не найдены',
+    'admin.dbViewer.error': 'Ошибка загрузки данных',
+    'admin.dbViewer.tables.tracks': 'Треки',
+    'admin.dbViewer.tables.playlists': 'Плейлисты',
+    'admin.dbViewer.tables.users': 'Пользователи',
+    'admin.dbViewer.tables.listeningHistory': 'История прослушиваний',
+    'admin.dbViewer.tables.playlistTracks': 'Треки в плейлистах',
+    'admin.dbViewer.tables.artists': 'Артисты',
+    'admin.dbViewer.tables.albums': 'Альбомы',
+    'admin.dbViewer.tables.roles': 'Роли',
     
     // Общие
     'common.track': 'трек',
@@ -1174,6 +1376,16 @@ export const translations: Translations = {
     'profile.favorites': 'In favorites',
     'profile.registration': 'Registration',
     'profile.lastLogin': 'Last login',
+    'profile.listeningHistory': 'Listening History',
+    'profile.listeningHistory.title': 'Listening History',
+    'profile.listeningHistory.empty': 'History is empty',
+    'profile.listeningHistory.emptyMessage': 'You haven\'t listened to any tracks yet',
+    'profile.listeningHistory.loading': 'Loading history...',
+    'profile.listeningHistory.played': 'Played',
+    'profile.listeningHistory.completed': 'Completed',
+    'profile.listeningHistory.notCompleted': 'Not completed',
+    'profile.listeningHistory.duration': 'Duration',
+    'profile.listeningHistory.error': 'Error loading history',
     
     // Settings
     'settings.title': 'Settings',
@@ -1603,7 +1815,27 @@ export const translations: Translations = {
     'analytics.csvHeaders.album': 'Album',
     'analytics.csvHeaders.duration': 'Track duration',
     'analytics.csvHeaders.played': 'Seconds played',
+    'analytics.csvHeaders.completed': 'Completed',
+    'analytics.exporting': 'Exporting data...',
+    'analytics.reportTitle': 'Listening Analytics Report',
+    'analytics.generatedOn': 'Generated on',
+    'analytics.statistics': 'Statistics',
+    'analytics.listeningHistory': 'Listening History',
+    'analytics.stats.totalListens': 'Total Listens',
+    'analytics.stats.totalDuration': 'Total Duration',
+    'analytics.stats.totalTracks': 'Total Tracks',
+    'analytics.stats.avgDuration': 'Average Duration',
+    'analytics.errorExport': 'Export error: {message}',
     'analytics.unknown': 'Unknown',
+    'analytics.charts.dailyListens': 'Listens by Day',
+    'analytics.charts.dailyDuration': 'Listening Time by Day',
+    'analytics.charts.topTracks': 'Top Tracks',
+    'analytics.charts.genres': 'Listens by Genre',
+    'analytics.charts.listens': 'Listens',
+    'analytics.charts.duration': 'Duration (minutes)',
+    'analytics.charts.durationMinutes': 'Minutes',
+    'analytics.charts.count': 'Count',
+    'analytics.charts.noData': 'No data to display',
     
     // Auth
     'auth.welcome': 'Welcome!',
@@ -1621,17 +1853,84 @@ export const translations: Translations = {
     'admin.loadError': 'Error loading data',
     'admin.roleNotFound': 'Role not found',
     'admin.roleUpdateSuccess': 'User role updated',
+    'admin.roleUpdateError': 'Error updating role',
     'admin.deleteConfirm': 'Are you sure you want to delete this user?',
     'admin.deleteSuccess': 'User deleted',
-    'admin.roleUpdateError': 'Error updating role',
     'admin.deleteError': 'Error deleting user',
     'admin.searchPlaceholder': 'Search users...',
     'admin.role.listener': 'Listener',
     'admin.role.distributor': 'Distributor',
     'admin.role.admin': 'Administrator',
     'admin.role.artist': 'Artist',
+    'admin.role.moderator': 'Moderator',
     'admin.title': 'Admin Panel',
     'admin.subtitle': 'User and content management',
+    'admin.stats.users': 'Users',
+    'admin.stats.tracks': 'Tracks',
+    'admin.stats.playlists': 'Playlists',
+    'admin.stats.artists': 'Artists',
+    'admin.stats.albums': 'Albums',
+    'admin.userManagement': 'User Management',
+    'admin.registration': 'Registration',
+    'admin.unknownError': 'Unknown error',
+    'admin.dbStatus.title': 'Database Status',
+    'admin.dbStatus.update': 'Update',
+    'admin.dbStatus.checking': 'Checking...',
+    'admin.dbStatus.checkingConnection': 'Checking connection...',
+    'admin.dbStatus.connected': 'Connected',
+    'admin.dbStatus.notConnected': 'Not connected',
+    'admin.dbStatus.active': 'Active',
+    'admin.dbStatus.error': 'Error',
+    'admin.dbStatus.errorTitle': 'Connection error:',
+    'admin.dbStatus.errorMessage': 'Check Supabase connection settings',
+    'admin.dbStatus.stats.users': 'Users',
+    'admin.dbStatus.stats.tracks': 'Tracks',
+    'admin.dbStatus.stats.playlists': 'Playlists',
+    'admin.dbStatus.stats.listenHistory': 'Listens',
+    'admin.dbStatus.setup.title': 'How to set up Supabase:',
+    'admin.dbStatus.setup.step1': 'Create an account on',
+    'admin.dbStatus.setup.step2': 'Create a new project',
+    'admin.dbStatus.setup.step3': 'Copy the project URL and anon key',
+    'admin.dbStatus.setup.step4': 'Create .env.local file in the project root',
+    'admin.dbStatus.setup.step5': 'Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY variables',
+    'admin.dbStatus.setup.step6': 'Run migrations: npx supabase db push',
+    'admin.storage.title': 'Storage Initialization',
+    'admin.storage.check': 'Check',
+    'admin.storage.checking': 'Checking...',
+    'admin.storage.initialize': 'Initialize',
+    'admin.storage.initializing': 'Initializing...',
+    'admin.storage.bucket.songs': 'Bucket "songs"',
+    'admin.storage.bucket.covers': 'Bucket "covers"',
+    'admin.storage.status.checking': 'Checking...',
+    'admin.storage.status.created': 'Created',
+    'admin.storage.status.missing': 'Missing',
+    'admin.storage.warning.title': 'Storage not configured',
+    'admin.storage.warning.message': 'To upload tracks, you need to create buckets in Supabase Storage. Click "Initialize" for automatic creation.',
+    'admin.storage.success.title': 'Storage configured',
+    'admin.storage.success.message': 'All required buckets are created. You can now upload tracks and covers.',
+    'admin.storage.info.title': 'What initialization does:',
+    'admin.storage.info.step1': 'Creates bucket "songs" for storing audio files (up to 50MB)',
+    'admin.storage.info.step2': 'Creates bucket "covers" for storing covers (up to 5MB)',
+    'admin.storage.info.step3': 'Configures access rights and file restrictions',
+    'admin.storage.success.toast': 'Storage initialized successfully!',
+    'admin.storage.error.toast': 'Storage initialization error',
+    'admin.dbViewer.title': 'Database Viewer',
+    'admin.dbViewer.searchPlaceholder': 'Search data...',
+    'admin.dbViewer.table': 'Table:',
+    'admin.dbViewer.totalRecords': 'Total records:',
+    'admin.dbViewer.shown': 'Shown:',
+    'admin.dbViewer.loading': 'Loading data...',
+    'admin.dbViewer.noData': 'No data in table',
+    'admin.dbViewer.noResults': 'No data found',
+    'admin.dbViewer.error': 'Error loading data',
+    'admin.dbViewer.tables.tracks': 'Tracks',
+    'admin.dbViewer.tables.playlists': 'Playlists',
+    'admin.dbViewer.tables.users': 'Users',
+    'admin.dbViewer.tables.listeningHistory': 'Listening History',
+    'admin.dbViewer.tables.playlistTracks': 'Playlist Tracks',
+    'admin.dbViewer.tables.artists': 'Artists',
+    'admin.dbViewer.tables.albums': 'Albums',
+    'admin.dbViewer.tables.roles': 'Roles',
     
     // Common
     'common.track': 'track',

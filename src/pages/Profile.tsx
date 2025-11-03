@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { User, Save, Mail, Calendar, Clock, Award, Music2, Heart, Edit } from "lucide-react";
+import { User, Save, Mail, Calendar, Clock, Award, Music2, Heart, Edit, Play, History } from "lucide-react";
 import ImageUpload from "@/components/ImageUpload";
 import { Badge } from "@/components/ui/badge";
 import BecomeArtistForm from "@/components/BecomeArtistForm";
 import { useRole } from "@/hooks/useRole";
 import { useTranslation } from "@/hooks/useTranslation";
+import { usePlayer } from "@/contexts/PlayerContext";
+import type { Track } from "@/types";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -35,10 +37,14 @@ const Profile = () => {
     playlistsCount: 0,
     favoritesCount: 0,
   });
+  const [listeningHistory, setListeningHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const { playTrack } = usePlayer();
 
   useEffect(() => {
     fetchProfile();
     fetchStats();
+    fetchListeningHistory();
   }, []);
 
   const fetchProfile = async () => {
@@ -104,6 +110,82 @@ const Profile = () => {
       });
     } catch (error) {
       console.error("Ошибка загрузки статистики:", error);
+    }
+  };
+
+  const fetchListeningHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { data: historyData, error } = await supabase
+        .from("listening_history")
+        .select(`
+          id,
+          listened_at,
+          duration_played,
+          completed,
+          track:tracks(
+            id,
+            track_title,
+            track_duration,
+            track_audio_url,
+            album:albums(
+              id,
+              album_title,
+              album_cover_url,
+              artist:artists(
+                id,
+                artist_name
+              )
+            )
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("listened_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setListeningHistory(historyData || []);
+    } catch (error: any) {
+      console.error("Ошибка загрузки истории:", error);
+      toast.error(t('profile.listeningHistory.error'));
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handlePlayTrack = (historyItem: any) => {
+    if (historyItem.track) {
+      const track = historyItem.track;
+      // Преобразуем данные трека в формат Track
+      const trackData: Track = {
+        id: track.id,
+        track_title: track.track_title,
+        track_duration: track.track_duration,
+        track_play_count: 0,
+        track_like_count: 0,
+        track_audio_url: track.track_audio_url,
+        album: {
+          id: track.album?.id || '',
+          album_title: track.album?.album_title || '',
+          album_cover_url: track.album?.album_cover_url || null,
+          artist: {
+            id: track.album?.artist?.id || '',
+            artist_name: track.album?.artist?.artist_name || '',
+          },
+        },
+        genres: [],
+      };
+      playTrack(trackData);
     }
   };
 
@@ -329,6 +411,94 @@ const Profile = () => {
           <Save className="w-4 h-4" />
           {saving ? t('profile.saving') : t('profile.save')}
         </Button>
+      </Card>
+
+      {/* Listening History Section */}
+      <Card className="p-6 space-y-6 bg-card/50 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <History className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-semibold">{t('profile.listeningHistory.title')}</h2>
+        </div>
+
+        {loadingHistory ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+            <span className="ml-3 text-muted-foreground">{t('profile.listeningHistory.loading')}</span>
+          </div>
+        ) : listeningHistory.length === 0 ? (
+          <div className="text-center py-12">
+            <Music2 className="w-16 h-16 mx-auto text-muted-foreground mb-4 opacity-50" />
+            <p className="text-lg font-semibold text-muted-foreground mb-2">
+              {t('profile.listeningHistory.empty')}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t('profile.listeningHistory.emptyMessage')}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {listeningHistory.map((historyItem) => {
+              if (!historyItem.track) return null;
+              const track = historyItem.track;
+              return (
+                <div
+                  key={historyItem.id}
+                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-card/50 transition-colors group"
+                >
+                  {track.album?.album_cover_url ? (
+                    <img
+                      src={track.album.album_cover_url}
+                      alt={track.album.album_title}
+                      className="w-16 h-16 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                      <Music2 className="w-8 h-8 text-primary/50" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold truncate">{track.track_title}</h3>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {track.album?.artist?.artist_name} • {track.album?.album_title}
+                    </p>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          {t('profile.listeningHistory.played')}: {formatDuration(historyItem.duration_played || 0)}
+                          {track.track_duration && ` / ${formatDuration(track.track_duration)}`}
+                        </span>
+                      </div>
+                      {historyItem.completed ? (
+                        <Badge variant="default" className="text-xs">
+                          {t('profile.listeningHistory.completed')}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          {t('profile.listeningHistory.notCompleted')}
+                        </Badge>
+                      )}
+                      <span>
+                        {new Date(historyItem.listened_at).toLocaleString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handlePlayTrack(historyItem)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    disabled={!track.track_audio_url}
+                  >
+                    <Play className="w-4 h-4" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       {/* Become Artist Section */}

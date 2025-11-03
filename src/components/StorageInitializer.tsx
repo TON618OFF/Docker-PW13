@@ -1,36 +1,81 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Database, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const StorageInitializer = () => {
+  const { t } = useTranslation();
   const [initializing, setInitializing] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [bucketsStatus, setBucketsStatus] = useState<{
     songs: boolean | null;
     covers: boolean | null;
   }>({ songs: null, covers: null });
 
-  const checkBuckets = async () => {
-    try {
-      // Проверяем bucket для песен
-      const { data: songsList, error: songsError } = await supabase.storage.listBuckets();
-      
-      if (songsError) {
-        console.error('Ошибка проверки bucket\'ов:', songsError);
-        setBucketsStatus({ songs: false, covers: false });
-        return;
-      }
+  useEffect(() => {
+    checkBuckets();
+  }, []);
 
-      const songsExists = songsList?.some(bucket => bucket.name === 'songs') || false;
-      const coversExists = songsList?.some(bucket => bucket.name === 'covers') || false;
+  const checkBuckets = async () => {
+    setChecking(true);
+    try {
+      // Проверяем bucket'ы, пытаясь получить список файлов из каждого
+      // Если bucket не существует, получим ошибку "not found" или "Bucket not found"
+      const [songsCheck, coversCheck] = await Promise.all([
+        supabase.storage.from('songs').list('', { limit: 1 }),
+        supabase.storage.from('covers').list('', { limit: 1 }),
+      ]);
+
+      // Проверяем наличие bucket'ов по типу ошибки
+      // Если bucket существует, ошибка будет связана с доступом (RLS), а не с отсутствием bucket'а
+      const songsExists = !songsCheck.error || 
+        (songsCheck.error && 
+         !songsCheck.error.message?.toLowerCase().includes('not found') && 
+         !songsCheck.error.message?.toLowerCase().includes('does not exist') &&
+         !songsCheck.error.message?.toLowerCase().includes('bucket not found'));
       
-      setBucketsStatus({ songs: songsExists, covers: coversExists });
+      const coversExists = !coversCheck.error || 
+        (coversCheck.error && 
+         !coversCheck.error.message?.toLowerCase().includes('not found') && 
+         !coversCheck.error.message?.toLowerCase().includes('does not exist') &&
+         !coversCheck.error.message?.toLowerCase().includes('bucket not found'));
+
+      setBucketsStatus({ 
+        songs: songsExists,
+        covers: coversExists
+      });
+
+      // Дополнительная проверка через listBuckets (если доступна)
+      try {
+        const { data: bucketsList, error: bucketsError } = await supabase.storage.listBuckets();
+        
+        if (!bucketsError && bucketsList && bucketsList.length > 0) {
+          const songsInList = bucketsList.some(bucket => 
+            bucket.name === 'songs' || bucket.id === 'songs'
+          );
+          const coversInList = bucketsList.some(bucket => 
+            bucket.name === 'covers' || bucket.id === 'covers'
+          );
+          
+          // Используем результат из listBuckets как более точный
+          setBucketsStatus({ 
+            songs: songsInList,
+            covers: coversInList
+          });
+        }
+      } catch (listError) {
+        // Игнорируем ошибку listBuckets, используем результат из предыдущей проверки
+        console.log('listBuckets не доступен:', listError);
+      }
     } catch (error) {
       console.error('Ошибка проверки bucket\'ов:', error);
-      setBucketsStatus({ songs: false, covers: false });
+      // Не устанавливаем false автоматически, оставляем текущее состояние
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -60,11 +105,11 @@ const StorageInitializer = () => {
         console.error('Ошибка создания bucket covers:', coversError.message);
       }
 
-      toast.success("Storage инициализирован успешно!");
+      toast.success(t('admin.storage.success.toast'));
       await checkBuckets();
       
     } catch (error: any) {
-      toast.error(`Ошибка инициализации Storage: ${error.message}`);
+      toast.error(`${t('admin.storage.error.toast')}: ${error.message}`);
     } finally {
       setInitializing(false);
     }
@@ -76,8 +121,8 @@ const StorageInitializer = () => {
   };
 
   const getStatusBadge = (status: boolean | null) => {
-    if (status === null) return <Badge variant="secondary">Проверка...</Badge>;
-    return <Badge variant={status ? "default" : "destructive"}>{status ? "Создан" : "Отсутствует"}</Badge>;
+    if (status === null) return <Badge variant="secondary">{t('admin.storage.status.checking')}</Badge>;
+    return <Badge variant={status ? "default" : "destructive"}>{status ? t('admin.storage.status.created') : t('admin.storage.status.missing')}</Badge>;
   };
 
   return (
@@ -85,14 +130,14 @@ const StorageInitializer = () => {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Database className="w-5 h-5" />
-          Инициализация Storage
+          {t('admin.storage.title')}
         </h3>
         <div className="flex gap-2">
-          <Button onClick={checkBuckets} disabled={initializing} size="sm" variant="outline">
-            Проверить
+          <Button onClick={checkBuckets} disabled={initializing || checking} size="sm" variant="outline">
+            {checking ? t('admin.storage.checking') : t('admin.storage.check')}
           </Button>
           <Button onClick={initializeStorage} disabled={initializing} size="sm">
-            {initializing ? "Инициализация..." : "Инициализировать"}
+            {initializing ? t('admin.storage.initializing') : t('admin.storage.initialize')}
           </Button>
         </div>
       </div>
@@ -103,7 +148,7 @@ const StorageInitializer = () => {
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-2">
               {getStatusIcon(bucketsStatus.songs)}
-              <span className="font-medium">Bucket "songs"</span>
+              <span className="font-medium">{t('admin.storage.bucket.songs')}</span>
             </div>
             {getStatusBadge(bucketsStatus.songs)}
           </div>
@@ -111,7 +156,7 @@ const StorageInitializer = () => {
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-2">
               {getStatusIcon(bucketsStatus.covers)}
-              <span className="font-medium">Bucket "covers"</span>
+              <span className="font-medium">{t('admin.storage.bucket.covers')}</span>
             </div>
             {getStatusBadge(bucketsStatus.covers)}
           </div>
@@ -124,11 +169,10 @@ const StorageInitializer = () => {
               <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                  Storage не настроен
+                  {t('admin.storage.warning.title')}
                 </h4>
                 <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                  Для загрузки треков необходимо создать bucket'ы в Supabase Storage. 
-                  Нажмите "Инициализировать" для автоматического создания.
+                  {t('admin.storage.warning.message')}
                 </p>
               </div>
             </div>
@@ -139,10 +183,10 @@ const StorageInitializer = () => {
               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-medium text-green-800 dark:text-green-200 mb-1">
-                  Storage настроен
+                  {t('admin.storage.success.title')}
                 </h4>
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  Все необходимые bucket'ы созданы. Теперь можно загружать треки и обложки.
+                  {t('admin.storage.success.message')}
                 </p>
               </div>
             </div>
@@ -152,12 +196,12 @@ const StorageInitializer = () => {
         {/* Инструкции */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-            Что делает инициализация:
+            {t('admin.storage.info.title')}
           </h4>
           <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-            <li>Создает bucket "songs" для хранения аудио файлов (до 50MB)</li>
-            <li>Создает bucket "covers" для хранения обложек (до 5MB)</li>
-            <li>Настраивает права доступа и ограничения файлов</li>
+            <li>{t('admin.storage.info.step1')}</li>
+            <li>{t('admin.storage.info.step2')}</li>
+            <li>{t('admin.storage.info.step3')}</li>
           </ul>
         </div>
       </div>

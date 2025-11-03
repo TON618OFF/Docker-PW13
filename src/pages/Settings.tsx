@@ -10,10 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Settings as SettingsIcon, User, Save, Eye, EyeOff, Heart, Music, Disc, ListMusic, Lock, Globe } from "lucide-react";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
-import { useRole } from "@/hooks/useRole";
-import DatabaseStatus from "@/components/DatabaseStatus";
-import DatabaseViewer from "@/components/DatabaseViewer";
-import StorageInitializer from "@/components/StorageInitializer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import ImageUpload from "@/components/ImageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -22,7 +18,6 @@ const Settings = () => {
   const navigate = useNavigate();
   const { playTrack } = usePlayer();
   const { theme, language, setTheme, setLanguage } = useAppSettings();
-  const { isAdmin } = useRole();
   const { t } = useTranslation();
   const [profile, setProfile] = useState({
     username: "",
@@ -293,15 +288,6 @@ const Settings = () => {
         </h1>
         <p className="text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
-
-      {/* Статус базы данных - только для не-слушателей */}
-      {isAdmin && <DatabaseStatus />}
-
-      {/* Инициализация Storage - только для не-слушателей */}
-      {isAdmin && <StorageInitializer />}
-
-      {/* Просмотр базы данных - только для не-слушателей */}
-      {isAdmin && <DatabaseViewer />}
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid w-full grid-cols-4">

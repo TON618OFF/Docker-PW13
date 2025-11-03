@@ -8,13 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { 
-  Users, 
-  Music, 
-  ListMusic, 
-  UserPlus, 
-  Trash2, 
-  Edit, 
+import { useTranslation } from "@/hooks/useTranslation";
+import DatabaseStatus from "@/components/DatabaseStatus";
+import StorageInitializer from "@/components/StorageInitializer";
+import DatabaseViewer from "@/components/DatabaseViewer";
+import {
+  Users,
+  Music,
+  ListMusic,
+  UserPlus,
+  Trash2,
+  Edit,
   Search,
   Shield,
   Crown,
@@ -26,7 +30,7 @@ interface User {
   username: string;
   first_name: string | null;
   last_name: string | null;
-  email: string;
+  email?: string;
   role_name: string;
   created_at: string;
   last_login: string | null;
@@ -69,11 +73,10 @@ const AdminPanel = () => {
             username,
             first_name,
             last_name,
-            email,
             created_at,
             last_login,
             role:roles(role_name)
-          `)
+          `, { count: "exact" })
           .order("created_at", { ascending: false }),
         supabase
           .from("tracks")
@@ -90,9 +93,15 @@ const AdminPanel = () => {
       ]);
 
       if (usersResult.data) {
-        const usersWithRoles = usersResult.data.map(user => ({
-          ...user,
-          role_name: user.role?.role_name || t('admin.role.listener')
+        const usersWithRoles = usersResult.data.map((user: any) => ({
+          id: user.id,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: '', // Email недоступен из public.users, можно получить через RPC если нужно
+          role_name: user.role?.role_name || t('admin.role.listener'),
+          created_at: user.created_at,
+          last_login: user.last_login
         }));
         setUsers(usersWithRoles);
       }
@@ -115,28 +124,34 @@ const AdminPanel = () => {
   const handleRoleChange = async (userId: string, newRoleName: string) => {
     try {
       // Получаем ID роли
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from("roles")
         .select("id")
         .eq("role_name", newRoleName)
         .single();
 
-      if (!roleData) {
+      if (roleError || !roleData) {
+        console.error("Ошибка получения роли:", roleError);
         toast.error(t('admin.roleNotFound'));
         return;
       }
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from("users")
         .update({ role_id: roleData.id })
         .eq("id", userId);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error("Ошибка обновления роли:", updateError);
+        toast.error(`${t('admin.roleUpdateError')}: ${updateError.message}`);
+        return;
+      }
 
       toast.success(t('admin.roleUpdateSuccess'));
       fetchData();
     } catch (error: any) {
-      toast.error(`Ошибка обновления роли: ${error.message}`);
+      console.error("Неожиданная ошибка при изменении роли:", error);
+      toast.error(`${t('admin.roleUpdateError')}: ${error.message || t('admin.unknownError')}`);
     }
   };
 
@@ -164,6 +179,10 @@ const AdminPanel = () => {
         return <Crown className="w-4 h-4 text-red-500" />;
       case "дистрибьютор":
         return <Shield className="w-4 h-4 text-blue-500" />;
+      case "артист":
+        return <Music className="w-4 h-4 text-purple-500" />;
+      case "модератор":
+        return <Shield className="w-4 h-4 text-orange-500" />;
       default:
         return <User className="w-4 h-4 text-gray-500" />;
     }
@@ -175,6 +194,10 @@ const AdminPanel = () => {
         return "bg-red-500/20 text-red-300 border-red-500/30";
       case "дистрибьютор":
         return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+      case "артист":
+        return "bg-purple-500/20 text-purple-300 border-purple-500/30";
+      case "модератор":
+        return "bg-orange-500/20 text-orange-300 border-orange-500/30";
       default:
         return "bg-gray-500/20 text-gray-300 border-gray-500/30";
     }
@@ -182,7 +205,7 @@ const AdminPanel = () => {
 
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.first_name && user.first_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.last_name && user.last_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -211,7 +234,7 @@ const AdminPanel = () => {
           <div className="flex items-center gap-3">
             <Users className="w-8 h-8 text-primary" />
             <div>
-              <p className="text-sm text-muted-foreground">Пользователи</p>
+              <p className="text-sm text-muted-foreground">{t('admin.stats.users')}</p>
               <p className="text-2xl font-bold">{stats.totalUsers}</p>
             </div>
           </div>
@@ -221,7 +244,7 @@ const AdminPanel = () => {
           <div className="flex items-center gap-3">
             <Music className="w-8 h-8 text-secondary" />
             <div>
-              <p className="text-sm text-muted-foreground">Треки</p>
+              <p className="text-sm text-muted-foreground">{t('admin.stats.tracks')}</p>
               <p className="text-2xl font-bold">{stats.totalTracks}</p>
             </div>
           </div>
@@ -231,7 +254,7 @@ const AdminPanel = () => {
           <div className="flex items-center gap-3">
             <ListMusic className="w-8 h-8 text-accent" />
             <div>
-              <p className="text-sm text-muted-foreground">Плейлисты</p>
+              <p className="text-sm text-muted-foreground">{t('admin.stats.playlists')}</p>
               <p className="text-2xl font-bold">{stats.totalPlaylists}</p>
             </div>
           </div>
@@ -241,7 +264,7 @@ const AdminPanel = () => {
           <div className="flex items-center gap-3">
             <User className="w-8 h-8 text-green-500" />
             <div>
-              <p className="text-sm text-muted-foreground">Артисты</p>
+              <p className="text-sm text-muted-foreground">{t('admin.stats.artists')}</p>
               <p className="text-2xl font-bold">{stats.totalArtists}</p>
             </div>
           </div>
@@ -251,19 +274,28 @@ const AdminPanel = () => {
           <div className="flex items-center gap-3">
             <Music className="w-8 h-8 text-purple-500" />
             <div>
-              <p className="text-sm text-muted-foreground">Альбомы</p>
+              <p className="text-sm text-muted-foreground">{t('admin.stats.albums')}</p>
               <p className="text-2xl font-bold">{stats.totalAlbums}</p>
             </div>
           </div>
         </Card>
       </div>
 
+      {/* Статус базы данных */}
+      <DatabaseStatus />
+
+      {/* Инициализация Storage */}
+      <StorageInitializer />
+
+      {/* Просмотр базы данных */}
+      <DatabaseViewer />
+
       {/* Управление пользователями */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Управление пользователями
+            {t('admin.userManagement')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -291,7 +323,7 @@ const AdminPanel = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold">
-                          {user.first_name && user.last_name 
+                          {user.first_name && user.last_name
                             ? `${user.first_name} ${user.last_name}`
                             : user.username
                           }
@@ -303,9 +335,9 @@ const AdminPanel = () => {
                           </div>
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      {user.email && <p className="text-sm text-muted-foreground">{user.email}</p>}
                       <p className="text-xs text-muted-foreground">
-                        Регистрация: {new Date(user.created_at).toLocaleDateString("ru-RU")}
+                        {t('admin.registration')}: {new Date(user.created_at).toLocaleDateString("ru-RU")}
                       </p>
                     </div>
                   </div>
@@ -322,6 +354,8 @@ const AdminPanel = () => {
                         <SelectItem value="слушатель">{t('admin.role.listener')}</SelectItem>
                         <SelectItem value="дистрибьютор">{t('admin.role.distributor')}</SelectItem>
                         <SelectItem value="администратор">{t('admin.role.admin')}</SelectItem>
+                        <SelectItem value="артист">{t('admin.role.artist')}</SelectItem>
+                        <SelectItem value="модератор">{t('admin.role.moderator')}</SelectItem>
                       </SelectContent>
                     </Select>
 

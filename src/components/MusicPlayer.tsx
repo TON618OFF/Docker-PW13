@@ -39,6 +39,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
   const [isFavorite, setIsFavorite] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
+  const lastLoggedTimeRef = useRef<number>(0);
+  const logIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const playCountLoggedRef = useRef<string | null>(null); // ID трека, для которого уже засчитано прослушивание
   const { 
     currentTrack, 
     nextTrack, 
@@ -250,6 +253,26 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
           await audio.play();
           setIsPlaying(true);
           console.log('Auto-playing track');
+          
+          // Сбрасываем время последнего логирования
+          lastLoggedTimeRef.current = 0;
+          
+          // Сбрасываем флаг засчитанного прослушивания при смене трека
+          if (playCountLoggedRef.current !== track?.id) {
+            playCountLoggedRef.current = null;
+          }
+          
+          // Начисляем прослушивание один раз через 5-10 секунд
+          setTimeout(() => {
+            const audio = audioRef.current;
+            if (audio && track && !audio.paused && audio.currentTime >= 5 && playCountLoggedRef.current !== track.id) {
+              incrementPlayCount(track.id);
+              playCountLoggedRef.current = track.id;
+            }
+          }, 5000);
+          
+          // Запускаем периодическое логирование только для истории (без начисления play_count)
+          startLoggingInterval();
         } catch (error: any) {
           // Если автовоспроизведение заблокировано браузером, просто логируем
           // Это нормальное поведение для многих браузеров
@@ -264,6 +287,22 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
       
       const audio = audioRef.current;
       if (!audio) return;
+
+      // Логируем завершенное прослушивание и начисляем play_count если еще не засчитано
+      if (track && audio.duration > 0) {
+        // Если play_count еще не засчитан, начисляем его
+        if (playCountLoggedRef.current !== track.id) {
+          await incrementPlayCount(track.id);
+          playCountLoggedRef.current = track.id;
+        }
+        // Логируем в историю (триггер не сработает, так как play_count уже засчитан)
+        await logListening(audio.duration, true);
+        console.log('Logged completed listening');
+      }
+      
+      // Останавливаем периодическое логирование
+      stopLoggingInterval();
+      lastLoggedTimeRef.current = 0;
       
       if (repeatMode === 'one') {
         // Повторяем текущий трек
@@ -369,7 +408,24 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
       audio.removeEventListener('loadstart', handleLoadStart);
       audio.removeEventListener('loadeddata', handleLoadedData);
     };
+
+    // Очистка интервала при размонтировании
+    return () => {
+      stopLoggingInterval();
+    };
   }, [audioUrl, onTrackEnd, isPlaying, track, repeatMode, playlist, isShuffled, shuffledPlaylist]);
+
+  // Очистка интервала при смене трека
+  useEffect(() => {
+    return () => {
+      stopLoggingInterval();
+      // Логируем прослушивание при смене трека
+      const audio = audioRef.current;
+      if (audio && track && audio.currentTime > 5) { // Логируем только если прослушано больше 5 секунд
+        logListening(audio.currentTime, false);
+      }
+    };
+  }, [track?.id]);
 
   // Управление воспроизведением
   const togglePlayPause = async () => {
@@ -386,6 +442,20 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
+      
+      // Логируем прослушивание при паузе (только если прослушано больше 5 секунд)
+      if (track && audio.currentTime >= 5) {
+        // Если play_count еще не засчитан, начисляем его
+        if (playCountLoggedRef.current !== track.id) {
+          incrementPlayCount(track.id);
+          playCountLoggedRef.current = track.id;
+        }
+        // Логируем в историю
+        logListening(audio.currentTime, false);
+      }
+      
+      // Останавливаем периодическое логирование
+      stopLoggingInterval();
     } else {
       try {
         // Проверяем готовность аудио
@@ -399,8 +469,19 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
         setIsPlaying(true);
         console.log('Audio started playing');
         
-        // Логируем прослушивание
-        await logListening();
+        // Сбрасываем время последшего логирования
+        lastLoggedTimeRef.current = 0;
+        
+        // Запускаем периодическое логирование
+        startLoggingInterval();
+        
+          // Первое логирование через 10 секунд
+          setTimeout(() => {
+            const audio = audioRef.current;
+            if (audio && isPlaying && audio.currentTime >= 10 && track) {
+              logListening(audio.currentTime, false);
+            }
+          }, 10000);
       } catch (error: any) {
         console.error('Ошибка воспроизведения:', error);
         console.error('Error details:', {
@@ -421,23 +502,150 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
   };
 
   // Логирование прослушивания
-  const logListening = async () => {
-    if (!track) return;
+  const logListening = async (duration: number, completed: boolean = false) => {
+    if (!track) {
+      console.warn('logListening: No track available');
+      return;
+    }
 
     try {
       const user = (await supabase.auth.getUser()).data.user;
-      if (!user) return;
+      if (!user) {
+        console.warn('logListening: No user available');
+        return;
+      }
 
-      await supabase.from('listening_history').insert({
+      const durationSeconds = Math.floor(duration);
+      // Логируем даже если duration очень маленький (например, 1 секунда), но не 0
+      if (durationSeconds < 1) {
+        console.log('logListening: Duration is less than 1 second, skipping');
+        return;
+      }
+
+      // Логируем только для отладки при необходимости
+      // console.log('Logging listening:', {
+      //   trackId: track.id,
+      //   trackTitle: track.track_title,
+      //   duration: durationSeconds,
+      //   completed,
+      //   userId: user.id
+      // });
+
+      // Если play_count уже засчитан, уменьшаем его перед логированием, чтобы триггер не увеличил его снова
+      // Но это сложно, поэтому лучше просто не логировать если play_count уже засчитан
+      // Или логировать только финальную запись при завершении/паузе
+      
+      // Если play_count уже засчитан, логируем историю (триггер не увеличит счетчик еще раз)
+      // Если play_count еще не засчитан, логируем только после начисления play_count
+      const { data, error } = await supabase.from('listening_history').insert({
         user_id: user.id,
         track_id: track.id,
-        duration_played: Math.floor(currentTime),
-        completed: false
-      });
-    } catch (error) {
+        duration_played: durationSeconds,
+        completed: completed
+      }).select();
+
+      if (error) {
+        console.error('Ошибка логирования прослушивания:', error);
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+      } else {
+        // Успешное логирование - обновляем время последнего логирования
+        lastLoggedTimeRef.current = durationSeconds;
+        
+        // Если play_count уже засчитан через incrementPlayCount, но триггер его увеличил еще раз
+        // Уменьшаем его обратно (получаем текущее значение и уменьшаем на 1)
+        if (playCountLoggedRef.current === track.id) {
+          // play_count уже засчитан, триггер увеличил его еще раз - уменьшаем обратно
+          const { data: trackData } = await supabase
+            .from('tracks')
+            .select('track_play_count')
+            .eq('id', track.id)
+            .single();
+          
+          if (trackData && trackData.track_play_count > 0) {
+            const { error: decrementError } = await supabase
+              .from('tracks')
+              .update({ track_play_count: trackData.track_play_count - 1 })
+              .eq('id', track.id);
+            
+            if (decrementError) {
+              console.error('Error decrementing play count after trigger:', decrementError);
+            }
+          }
+        } else {
+          // play_count еще не засчитан, триггер увеличил его - это нормально, оставляем как есть
+          playCountLoggedRef.current = track.id;
+        }
+      }
+    } catch (error: any) {
       console.error('Ошибка логирования прослушивания:', error);
+      toast.error(`Ошибка сохранения истории: ${error?.message || 'Unknown error'}`);
     }
   };
+
+  // Начисление прослушивания (одно на трек)
+  const incrementPlayCount = React.useCallback(async (trackId: string) => {
+    try {
+      // Получаем текущее значение и увеличиваем на 1
+      const { data: trackData } = await supabase
+        .from('tracks')
+        .select('track_play_count')
+        .eq('id', trackId)
+        .single();
+      
+      if (trackData) {
+        const { error: updateError } = await supabase
+          .from('tracks')
+          .update({ track_play_count: (trackData.track_play_count || 0) + 1 })
+          .eq('id', trackId);
+        
+        if (updateError) {
+          console.error('Error incrementing play count:', updateError);
+        } else {
+          console.log('Play count incremented for track:', trackId);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error incrementing play count:', error);
+    }
+  }, []);
+
+  // Запуск логирования прослушивания (только для истории, без начисления play_count)
+  const startLoggingInterval = React.useCallback(() => {
+    if (logIntervalRef.current) {
+      clearInterval(logIntervalRef.current);
+    }
+
+    // Сбрасываем флаг засчитанного прослушивания при смене трека
+    if (playCountLoggedRef.current !== track?.id) {
+      playCountLoggedRef.current = null;
+    }
+
+    // Начисляем прослушивание один раз после 5-10 секунд
+    const playCountTimeout = setTimeout(() => {
+      const audio = audioRef.current;
+      if (audio && track && !audio.paused && audio.currentTime >= 5 && playCountLoggedRef.current !== track.id) {
+        incrementPlayCount(track.id);
+        playCountLoggedRef.current = track.id;
+      }
+    }, 5000); // Проверяем через 5 секунд
+
+    // НЕ логируем периодически, чтобы триггер БД не увеличивал play_count многократно
+    // Логируем только при завершении/паузе/смене трека
+    logIntervalRef.current = null;
+  }, [track, incrementPlayCount]);
+
+  // Остановка периодического логирования
+  const stopLoggingInterval = React.useCallback(() => {
+    if (logIntervalRef.current) {
+      clearInterval(logIntervalRef.current);
+      logIntervalRef.current = null;
+    }
+  }, []);
 
   // Перемотка
   const handleSeek = (value: number[]) => {

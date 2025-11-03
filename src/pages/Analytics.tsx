@@ -5,6 +5,21 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Clock, Music, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 const Analytics = () => {
   const { t } = useTranslation();
@@ -15,9 +30,19 @@ const Analytics = () => {
     totalTracks: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [topTracks, setTopTracks] = useState<any[]>([]);
+  const [genreData, setGenreData] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAnalytics();
+
+    // Обновляем данные каждые 10 секунд, чтобы видеть новые прослушивания
+    const interval = setInterval(() => {
+      fetchAnalytics();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAnalytics = async () => {
@@ -30,10 +55,16 @@ const Analytics = () => {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
+      // Получаем дату 30 дней назад
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
+
       // Получаем историю прослушиваний с информацией о треках
       // Для totalDurationMinutes - только за сегодня
       // Для остальной статистики - все прослушивания
-      const [todayData, allData] = await Promise.all([
+      const [todayData, allData, chartData] = await Promise.all([
         supabase
           .from("listening_history")
           .select(`
@@ -54,32 +85,155 @@ const Analytics = () => {
               track_duration
             )
           `)
+          .eq("user_id", user.id),
+        supabase
+          .from("listening_history")
+          .select(`
+            listened_at,
+            duration_played,
+            track_id,
+            completed,
+            track:tracks(
+              id,
+              track_title,
+              track_duration,
+              genres:track_genres(
+                genre:genres(
+                  id,
+                  genre_name
+                )
+              )
+            )
+          `, { count: 'exact' })
           .eq("user_id", user.id)
+          .order("listened_at", { ascending: false })
+          .limit(100)
       ]);
 
-      if (todayData.error) throw todayData.error;
-      if (allData.error) throw allData.error;
+      if (todayData.error) {
+        console.error("Today data error:", todayData.error);
+        throw todayData.error;
+      }
+      if (allData.error) {
+        console.error("All data error:", allData.error);
+        throw allData.error;
+      }
+      if (chartData.error) {
+        console.error("Chart data error:", chartData.error);
+        throw chartData.error;
+      }
+
+      console.log("Analytics data:", {
+        todayCount: todayData.data?.length || 0,
+        allCount: allData.data?.length || 0,
+        chartCount: chartData.data?.length || 0,
+        todayISO,
+        thirtyDaysAgoISO,
+        userId: user.id
+      });
+
+      // Если нет данных, проверяем без фильтров по дате
+      if (!allData.data || allData.data.length === 0) {
+        console.log("No data found with filters, trying without date filters");
+        const { data: allDataNoFilter, error: allErrorNoFilter } = await supabase
+          .from("listening_history")
+          .select("id, listened_at, duration_played, track_id, user_id, completed")
+          .eq("user_id", user.id)
+          .order("listened_at", { ascending: false })
+          .limit(10);
+
+        console.log("All data without filters:", {
+          count: allDataNoFilter?.length || 0,
+          error: allErrorNoFilter,
+          sample: allDataNoFilter?.[0],
+          allSamples: allDataNoFilter
+        });
+
+        // Если нашли данные без фильтров, используем их
+        if (allDataNoFilter && allDataNoFilter.length > 0) {
+          // Загружаем информацию о треках
+          const trackIds = allDataNoFilter.map(item => item.track_id).filter(Boolean);
+          let tracksMap = new Map();
+
+          if (trackIds.length > 0) {
+            const { data: tracksData } = await supabase
+              .from("tracks")
+              .select(`
+                id,
+                track_title,
+                track_duration,
+                genres:track_genres(
+                  genre:genres(
+                    id,
+                    genre_name
+                  )
+                )
+              `)
+              .in("id", trackIds);
+
+            tracksMap = new Map(tracksData?.map(t => [t.id, t]) || []);
+          }
+
+          const enrichedData = allDataNoFilter.map(item => ({
+            ...item,
+            track: tracksMap.get(item.track_id) || null
+          }));
+
+          // Обновляем статистику на основе найденных данных
+          const totalListens = enrichedData.length;
+          const totalDurationSeconds = enrichedData.reduce((acc, curr) => acc + (curr.duration_played || 0), 0);
+          const totalDurationMinutes = Math.floor(totalDurationSeconds / 60);
+
+          const uniqueTrackIds = new Set(enrichedData.map(item => item.track_id).filter(Boolean));
+          const totalTracks = uniqueTrackIds.size;
+
+          const trackDurations = enrichedData
+            .filter(item => item.track?.track_duration)
+            .map(item => item.track.track_duration);
+
+          const avgTrackDuration = trackDurations.length > 0
+            ? Math.floor(trackDurations.reduce((acc, curr) => acc + curr, 0) / trackDurations.length)
+            : 0;
+
+          setStats({
+            totalListens,
+            totalDurationMinutes,
+            avgTrackDuration,
+            totalTracks,
+          });
+
+          // Обрабатываем данные для графиков
+          processChartData(enrichedData);
+        }
+      }
 
       // Суточное время прослушивания (только за сегодня)
       const totalDurationSeconds = todayData.data?.reduce((acc, curr) => acc + (curr.duration_played || 0), 0) || 0;
       const totalDurationMinutes = Math.floor(totalDurationSeconds / 60);
 
       // Общая статистика (за все время)
-      const historyData = allData.data;
-      const totalListens = historyData?.length || 0;
-      
+      const historyData = allData.data || [];
+      const totalListens = historyData.length;
+
       // Подсчитываем среднюю длительность треков
       const trackDurations = historyData
-        ?.filter(item => item.track?.track_duration)
+        .filter(item => item.track?.track_duration)
         .map(item => item.track.track_duration) || [];
-      
+
       const avgTrackDuration = trackDurations.length > 0
         ? Math.floor(trackDurations.reduce((acc, curr) => acc + curr, 0) / trackDurations.length)
         : 0;
 
       // Подсчитываем количество уникальных треков
-      const uniqueTrackIds = new Set(historyData?.map(item => item.track?.id).filter(Boolean));
+      const uniqueTrackIds = new Set(historyData.map(item => item.track?.id).filter(Boolean));
       const totalTracks = uniqueTrackIds.size;
+
+      console.log("Stats calculated:", {
+        totalListens,
+        totalDurationMinutes,
+        avgTrackDuration,
+        totalTracks,
+      });
 
       setStats({
         totalListens,
@@ -87,6 +241,71 @@ const Analytics = () => {
         avgTrackDuration,
         totalTracks,
       });
+
+      // Обработка данных для графиков
+      const chartDataArray = chartData.data || [];
+      console.log("Chart data array length:", chartDataArray.length);
+      if (chartDataArray.length > 0) {
+        console.log("First chart item:", JSON.stringify(chartDataArray[0], null, 2));
+      } else {
+        // Попробуем загрузить данные без связей для отладки
+        const { data: simpleData, error: simpleError } = await supabase
+          .from("listening_history")
+          .select("id, listened_at, duration_played, track_id, user_id, completed")
+          .eq("user_id", user.id)
+          .order("listened_at", { ascending: false })
+          .limit(10);
+
+        console.log("Simple query result:", {
+          count: simpleData?.length || 0,
+          error: simpleError,
+          sample: simpleData?.[0]
+        });
+
+        if (simpleData && simpleData.length > 0) {
+          // Если есть данные, но нет связей - обрабатываем их
+          console.log("Found history records without track relations, processing simple data");
+          // Загружаем информацию о треках отдельно
+          const trackIds = simpleData.map(item => item.track_id).filter(Boolean);
+          if (trackIds.length > 0) {
+            const { data: tracksData } = await supabase
+              .from("tracks")
+              .select(`
+                id,
+                track_title,
+                track_duration,
+                genres:track_genres(
+                  genre:genres(
+                    id,
+                    genre_name
+                  )
+                )
+              `)
+              .in("id", trackIds);
+
+            const tracksMap = new Map(tracksData?.map(t => [t.id, t]) || []);
+
+            const enrichedData = simpleData.map(item => ({
+              ...item,
+              track: tracksMap.get(item.track_id) || null
+            }));
+
+            processChartData(enrichedData);
+          } else {
+            processChartData(simpleData.map(item => ({
+              ...item,
+              track: null
+            })));
+          }
+        } else {
+          console.log("No listening history data found at all");
+        }
+      }
+
+      if (chartDataArray.length > 0) {
+        console.log("Processing chart data with relations");
+        processChartData(chartDataArray);
+      }
     } catch (error) {
       console.error("Error fetching analytics:", error);
       toast.error(t('analytics.loadError'));
@@ -113,8 +332,246 @@ const Analytics = () => {
     return `${mins}м`;
   };
 
+  const processChartData = (data: any[]) => {
+    console.log("Processing chart data, items:", data.length);
+
+    if (!data || data.length === 0) {
+      console.log("No chart data to process");
+      setDailyData([]);
+      setTopTracks([]);
+      setGenreData([]);
+      return;
+    }
+
+    // График по дням (последние 30 дней)
+    const dailyMap = new Map<string, { listens: number; duration: number }>();
+
+    // Инициализируем все дни последних 30 дней
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const dateKey = date.toISOString().split('T')[0];
+      dailyMap.set(dateKey, { listens: 0, duration: 0 });
+    }
+
+    // Топ треков
+    const trackMap = new Map<string, { title: string; listens: number }>();
+
+    // Жанры
+    const genreMap = new Map<string, number>();
+
+    let processedCount = 0;
+    data.forEach((item) => {
+      if (!item || !item.listened_at) {
+        console.warn("Invalid item:", item);
+        return;
+      }
+
+      const date = new Date(item.listened_at);
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date:", item.listened_at);
+        return;
+      }
+
+      date.setHours(0, 0, 0, 0);
+      const dateKey = date.toISOString().split('T')[0];
+
+      if (dailyMap.has(dateKey)) {
+        const daily = dailyMap.get(dateKey)!;
+        daily.listens += 1;
+        daily.duration += item.duration_played || 0;
+        processedCount++;
+      }
+
+      // Топ треков - используем track_id если track отсутствует
+      const trackId = item.track?.id || item.track_id;
+      let trackTitle = item.track?.track_title;
+
+      if (!trackTitle && trackId) {
+        // Пытаемся загрузить название трека отдельно
+        trackTitle = `Track ${trackId.substring(0, 8)}...`;
+      }
+
+      if (trackId) {
+        const key = trackId;
+        if (!trackMap.has(key)) {
+          trackMap.set(key, { title: trackTitle || `Unknown Track`, listens: 0 });
+        }
+        trackMap.get(key)!.listens += 1;
+      }
+
+      // Жанры
+      if (item.track?.genres && Array.isArray(item.track.genres)) {
+        item.track.genres.forEach((tg: any) => {
+          if (tg?.genre?.genre_name) {
+            const genreName = tg.genre.genre_name;
+            genreMap.set(genreName, (genreMap.get(genreName) || 0) + 1);
+          }
+        });
+      }
+    });
+
+    console.log("Processed items:", processedCount);
+    console.log("Track map size:", trackMap.size);
+    console.log("Genre map size:", genreMap.size);
+
+    // Преобразуем данные для графика по дням
+    const dailyArray = Array.from(dailyMap.entries())
+      .map(([date, data]) => ({
+        date: new Date(date).toLocaleDateString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US", {
+          day: 'numeric',
+          month: 'short'
+        }),
+        listens: data.listens,
+        duration: Math.floor(data.duration / 60), // в минутах
+      }));
+
+    // Топ 10 треков
+    const topTracksArray = Array.from(trackMap.entries())
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.listens - a.listens)
+      .slice(0, 10);
+
+    // Топ 10 жанров
+    const genreArray = Array.from(genreMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    console.log("Final chart data:", {
+      dailyDataLength: dailyArray.length,
+      topTracksLength: topTracksArray.length,
+      genreDataLength: genreArray.length,
+    });
+
+    setDailyData(dailyArray);
+    setTopTracks(topTracksArray);
+    setGenreData(genreArray);
+  };
+
+  // Палитра для графиков - яркие контрастные цвета для белой бумаги
+  const COLORS = [
+    '#2563eb', // Синий
+    '#16a34a', // Зеленый
+    '#dc2626', // Красный
+    '#ca8a04', // Желтый
+    '#7c3aed', // Фиолетовый
+    '#0891b2', // Голубой
+    '#ea580c', // Оранжевый
+    '#be185d', // Розовый
+    '#059669', // Изумрудный
+    '#9333ea'  // Пурпурный
+  ];
+
+  const escapeCSV = (str: string): string => {
+    if (!str && str !== '0') return '""';
+    // Экранируем кавычки и заменяем переносы строк
+    const stringValue = str.toString();
+    // Убираем проблемные символы и заменяем переносы строк
+    const cleaned = stringValue
+      .replace(/"/g, '""')  // Экранируем кавычки
+      .replace(/\n/g, ' ')   // Заменяем переносы строк на пробелы
+      .replace(/\r/g, '')    // Убираем carriage return
+      .replace(/\t/g, ' ');  // Заменяем табы на пробелы
+    return `"${cleaned}"`;
+  };
+
+  // Создание ASCII графика для CSV
+  const createASCIIChart = (
+    data: any[],
+    valueKey: string,
+    labelKey: string,
+    maxWidth: number = 50,
+    height: number = 10
+  ): string[] => {
+    if (!data || data.length === 0) return [];
+
+    const lines: string[] = [];
+    const maxValue = Math.max(...data.map(item => item[valueKey] || 0));
+    if (maxValue === 0) return [];
+
+    // Определяем символы для графика (более темные для лучшей видимости)
+    const bars = ['█', '▓', '▒', '░'];
+
+    // Создаем график
+    data.forEach((item, index) => {
+      const value = item[valueKey] || 0;
+      const label = item[labelKey] || '';
+      const barLength = Math.round((value / maxValue) * maxWidth);
+      const bar = bars[0].repeat(barLength);
+      const padding = maxWidth - barLength;
+      const spacing = ' '.repeat(Math.max(0, padding));
+
+      // Форматируем строку
+      const formattedValue = typeof value === 'number' ? value.toString() : value;
+      lines.push(`${label.padEnd(15)}│${bar}${spacing}│ ${formattedValue}`);
+    });
+
+    return lines;
+  };
+
+  // Создание ASCII горизонтальной гистограммы
+  const createASCIIBarChart = (
+    data: any[],
+    valueKey: string,
+    labelKey: string,
+    maxWidth: number = 40
+  ): string[] => {
+    if (!data || data.length === 0) return [];
+
+    const lines: string[] = [];
+    const maxValue = Math.max(...data.map(item => item[valueKey] || 0));
+    if (maxValue === 0) return [];
+
+    data.forEach((item) => {
+      const value = item[valueKey] || 0;
+      let label = (item[labelKey] || '').toString().substring(0, 20);
+      // Убираем проблемные символы из меток
+      label = label.replace(/[,\n\r"]/g, ' ').trim().padEnd(20);
+      const barLength = Math.round((value / maxValue) * maxWidth);
+      const bar = '█'.repeat(Math.max(1, barLength));
+      const formattedValue = typeof value === 'number' ? value.toString() : value;
+      // Формируем строку так, чтобы она была одной колонкой в CSV
+      lines.push(`${label} ${bar} ${formattedValue}`);
+    });
+
+    return lines;
+  };
+
+  // Создание ASCII круговой диаграммы (текстовое представление)
+  const createASCIIPieChart = (
+    data: any[],
+    valueKey: string,
+    labelKey: string
+  ): string[] => {
+    if (!data || data.length === 0) return [];
+
+    const lines: string[] = [];
+    const total = data.reduce((sum, item) => sum + (item[valueKey] || 0), 0);
+    if (total === 0) return [];
+
+    const symbols = ['█', '▓', '▒', '░', '▄', '▀', '▌', '▐', '■', '□'];
+
+    data.forEach((item, index) => {
+      const value = item[valueKey] || 0;
+      let label = (item[labelKey] || '').toString();
+      // Убираем проблемные символы из меток
+      label = label.replace(/[,\n\r"]/g, ' ').trim().padEnd(20);
+      const percentage = ((value / total) * 100).toFixed(1);
+      const symbol = symbols[index % symbols.length];
+      const barLength = Math.round((value / total) * 30);
+      const bar = symbol.repeat(Math.max(1, barLength));
+
+      lines.push(`${symbol} ${label} ${bar} ${percentage}% (${value})`);
+    });
+
+    return lines;
+  };
+
   const exportToCSV = async () => {
     try {
+      toast.info(t('analytics.exporting') || 'Exporting CSV...');
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
@@ -123,6 +580,7 @@ const Analytics = () => {
         .select(`
           listened_at,
           duration_played,
+          completed,
           track:tracks(
             track_title,
             track_duration,
@@ -137,81 +595,582 @@ const Analytics = () => {
 
       if (error) throw error;
 
+      // Заголовки с правильной кодировкой
       const csvHeaders = [
         t('analytics.csvHeaders.date'),
         t('analytics.csvHeaders.track'),
         t('analytics.csvHeaders.artist'),
         t('analytics.csvHeaders.album'),
         t('analytics.csvHeaders.duration'),
-        t('analytics.csvHeaders.played')
+        t('analytics.csvHeaders.played'),
+        t('analytics.csvHeaders.completed') || 'Completed'
       ];
-      const csvRows = historyData?.map(item => [
-        new Date(item.listened_at).toLocaleString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US"),
-        item.track?.track_title || t('analytics.unknown'),
-        item.track?.album?.artist?.artist_name || t('analytics.unknown'),
-        item.track?.album?.album_title || t('analytics.unknown'),
-        formatDuration(item.track?.track_duration || 0),
-        item.duration_played || 0
-      ]) || [];
 
-      const csvContent = [
-        csvHeaders.join(","),
-        ...csvRows.map(row => row.map(cell => `"${cell}"`).join(","))
-      ].join("\n");
+      // Форматируем данные
+      const csvRows = historyData?.map(item => {
+        const date = new Date(item.listened_at);
+        const dateStr = date.toLocaleString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US", {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
 
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `analytics_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        return [
+          dateStr,
+          item.track?.track_title || t('analytics.unknown'),
+          item.track?.album?.artist?.artist_name || t('analytics.unknown'),
+          item.track?.album?.album_title || t('analytics.unknown'),
+          formatDuration(item.track?.track_duration || 0),
+          formatDuration(item.duration_played || 0),
+          item.completed ? (t('common.yes') || 'Yes') : (t('common.no') || 'No')
+        ];
+      }) || [];
+
+      // Добавляем статистику в начало файла
+      const statsSection = [
+        ['=== Listening Analytics Report ==='],
+        [''],
+        [t('analytics.stats.totalListens') || 'Total Listens', stats.totalListens],
+        [t('analytics.stats.totalDuration') || 'Total Duration', formatMinutes(stats.totalDurationMinutes)],
+        [t('analytics.stats.totalTracks') || 'Total Tracks', stats.totalTracks],
+        [t('analytics.stats.avgDuration') || 'Average Duration', formatDuration(stats.avgTrackDuration)],
+        [''],
+        ['=== Listening History ==='],
+        ['']
+      ];
+
+      // Данные графиков для экспорта с ASCII визуализацией
+      const chartsSection: string[][] = [];
+
+      // График по дням (Daily Listens) - с ASCII визуализацией
+      if (dailyData.length > 0) {
+        chartsSection.push(['']);
+        chartsSection.push(['=== ' + (t('analytics.charts.dailyListens') || 'Daily Listens') + ' ===']);
+        chartsSection.push(['']);
+
+        // Таблица данных
+        chartsSection.push([
+          t('analytics.csvHeaders.date') || 'Date',
+          t('analytics.charts.listens') || 'Listens',
+          t('analytics.charts.duration') || 'Duration (minutes)'
+        ]);
+        dailyData.forEach((item) => {
+          chartsSection.push([
+            item.date || '',
+            item.listens?.toString() || '0',
+            item.duration?.toString() || '0'
+          ]);
+        });
+
+        // ASCII график прослушиваний
+        chartsSection.push(['']);
+        chartsSection.push(['--- ASCII Chart: ' + (t('analytics.charts.listens') || 'Listens') + ' by Day ---']);
+        const listensChart = createASCIIBarChart(dailyData, 'listens', 'date', 35);
+        if (listensChart.length > 0) {
+          listensChart.forEach(line => chartsSection.push([line]));
+        }
+      }
+
+      // График по дням (Daily Duration) - с ASCII визуализацией
+      if (dailyData.length > 0) {
+        chartsSection.push(['']);
+        chartsSection.push(['=== ' + (t('analytics.charts.dailyDuration') || 'Daily Duration') + ' ===']);
+        chartsSection.push(['']);
+
+        // Таблица данных
+        chartsSection.push([
+          t('analytics.csvHeaders.date') || 'Date',
+          t('analytics.charts.duration') || 'Duration (minutes)',
+          t('analytics.charts.listens') || 'Listens'
+        ]);
+        dailyData.forEach((item) => {
+          chartsSection.push([
+            item.date || '',
+            item.duration?.toString() || '0',
+            item.listens?.toString() || '0'
+          ]);
+        });
+
+        // ASCII график длительности
+        chartsSection.push(['']);
+        chartsSection.push(['--- ASCII Chart: ' + (t('analytics.charts.duration') || 'Duration') + ' by Day ---']);
+        const durationChart = createASCIIBarChart(dailyData, 'duration', 'date', 35);
+        if (durationChart.length > 0) {
+          durationChart.forEach(line => chartsSection.push([line]));
+        }
+      }
+
+      // Топ треков - с ASCII визуализацией
+      if (topTracks.length > 0) {
+        chartsSection.push(['']);
+        chartsSection.push(['=== ' + (t('analytics.charts.topTracks') || 'Top Tracks') + ' ===']);
+        chartsSection.push(['']);
+
+        // Таблица данных
+        chartsSection.push([
+          t('analytics.csvHeaders.rank') || 'Rank',
+          t('analytics.csvHeaders.track') || 'Track',
+          t('analytics.charts.listens') || 'Listens'
+        ]);
+        topTracks.forEach((item, index) => {
+          chartsSection.push([
+            (index + 1).toString(),
+            item.title || t('analytics.unknown') || 'Unknown',
+            item.listens?.toString() || '0'
+          ]);
+        });
+
+        // ASCII график топ треков
+        chartsSection.push(['']);
+        chartsSection.push(['--- ASCII Chart: Top Tracks ---']);
+        const topTracksChart = createASCIIBarChart(
+          topTracks.map((item, idx) => ({
+            label: `${idx + 1}. ${item.title || 'Unknown'}`,
+            value: item.listens || 0
+          })),
+          'value',
+          'label',
+          35
+        );
+        if (topTracksChart.length > 0) {
+          topTracksChart.forEach(line => chartsSection.push([line]));
+        }
+      }
+
+      // График по жанрам - с ASCII визуализацией
+      if (genreData.length > 0) {
+        chartsSection.push(['']);
+        chartsSection.push(['=== ' + (t('analytics.charts.genres') || 'Genres') + ' ===']);
+        chartsSection.push(['']);
+
+        // Таблица данных
+        chartsSection.push([
+          t('analytics.csvHeaders.rank') || 'Rank',
+          t('analytics.csvHeaders.genre') || 'Genre',
+          t('analytics.charts.count') || 'Count'
+        ]);
+        genreData.forEach((item, index) => {
+          chartsSection.push([
+            (index + 1).toString(),
+            item.name || t('analytics.unknown') || 'Unknown',
+            item.count?.toString() || '0'
+          ]);
+        });
+
+        // ASCII круговая диаграмма (текстовое представление)
+        chartsSection.push(['']);
+        chartsSection.push(['--- ASCII Chart: ' + (t('analytics.charts.genres') || 'Genres') + ' Distribution ---']);
+        const genreChart = createASCIIPieChart(genreData, 'count', 'name');
+        if (genreChart.length > 0) {
+          genreChart.forEach(line => chartsSection.push([line]));
+        }
+      }
+
+      // Формируем CSV с UTF-8 BOM для корректного отображения кириллицы
+      try {
+        const csvLines = [
+          ...statsSection.map(row => row.map(escapeCSV).join(',')),
+          csvHeaders.map(escapeCSV).join(','),
+          ...csvRows.map(row => row.map(escapeCSV).join(',')),
+          ...chartsSection.map(row => {
+            // Для ASCII графиков - обрабатываем как одну колонку
+            if (row.length === 1) {
+              // Если это строка ASCII графика, оборачиваем в кавычки
+              const line = row[0] || '';
+              // Заменяем кавычки на двойные кавычки для CSV
+              return `"${line.replace(/"/g, '""')}"`;
+            }
+            // Для обычных строк с несколькими колонками
+            return row.map(escapeCSV).join(',');
+          })
+        ].filter(line => line !== null && line !== undefined);
+
+        // Создаем CSV контент с UTF-8 BOM
+        const csvText = csvLines.join('\r\n');
+
+        // Создаем Blob с правильной кодировкой UTF-8
+        // Используем TextEncoder для гарантированной UTF-8 кодировки
+        const encoder = new TextEncoder();
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // UTF-8 BOM в байтах
+        const csvBytes = encoder.encode(csvText);
+        const blob = new Blob([bom, csvBytes], {
+          type: "text/csv;charset=utf-8;"
+        });
+
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `analytics_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+
+        // Удаляем элемент после небольшой задержки, чтобы браузер успел скачать файл
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      } catch (csvError) {
+        console.error('CSV generation error:', csvError);
+        throw new Error(`Failed to generate CSV: ${csvError instanceof Error ? csvError.message : 'Unknown error'}`);
+      }
 
       toast.success(t('analytics.csvExportSuccess'));
     } catch (error: any) {
-      toast.error(t('analytics.errorExport', { message: error.message }));
+      console.error('CSV Export Error:', error);
+      const errorMsg = error.message || 'Unknown error';
+      toast.error(`${t('analytics.errorExport') || 'Export error'}: ${errorMsg}`);
     }
   };
 
   const exportToPDF = async () => {
     try {
+      toast.info(t('analytics.exporting') || 'Exporting PDF...');
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
-      // Используем jsPDF для создания PDF
       const { default: jsPDF } = await import("jspdf");
-      const doc = new jsPDF();
-      
-      // Используем английский текст для избежания проблем с кодировкой
-      // Для кириллицы можно использовать библиотеку jspdf-autotable или другой подход
+      const html2canvas = (await import("html2canvas")).default;
 
-      doc.setFontSize(20);
-      doc.text("Listening Analytics Report", 14, 22);
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPos = margin;
 
-      // Добавляем статистику
-      doc.setFontSize(12);
-      let yPos = 35;
-      doc.text(`Total listens: ${stats.totalListens}`, 14, yPos);
-      yPos += 10;
-      doc.text(`Total listening time: ${formatMinutes(stats.totalDurationMinutes)}`, 14, yPos);
-      yPos += 10;
-      doc.text(`Tracks listened: ${stats.totalTracks}`, 14, yPos);
-      yPos += 10;
-      doc.text(`Avg track duration: ${formatDuration(stats.avgTrackDuration)}`, 14, yPos);
-      yPos += 15;
+      // Создаем скрытый контейнер для рендеринга текста через html2canvas
+      const createTextElement = (text: string, fontSize: number = 14, fontWeight: string = 'normal', color: string = '#000000') => {
+        const div = document.createElement('div');
+        div.style.position = 'fixed';
+        div.style.left = '-9999px';
+        div.style.top = '0';
+        div.style.width = `${(pageWidth - 2 * margin) * 3.779527559}px`; // Конвертируем mm в px (1mm = 3.779527559px)
+        div.style.fontSize = `${fontSize}pt`;
+        div.style.fontWeight = fontWeight;
+        div.style.color = color;
+        div.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        div.style.lineHeight = '1.5';
+        div.style.whiteSpace = 'pre-wrap';
+        div.style.background = '#ffffff';
+        div.style.padding = '10px';
+        div.style.border = 'none';
+        div.style.boxSizing = 'border-box';
+        div.textContent = text;
+        document.body.appendChild(div);
+        // Ждем рендеринга
+        return new Promise<HTMLDivElement>((resolve) => {
+          setTimeout(() => resolve(div), 50);
+        });
+      };
 
-      // Добавляем таблицу истории
-      doc.setFontSize(14);
-      doc.text("Listening History", 14, yPos);
-      yPos += 10;
+      // Рендерим заголовок через html2canvas
+      const title = t('analytics.reportTitle') || 'Listening Analytics Report';
+      const titleDiv = await createTextElement(title, 24, 'bold');
+      const titleCanvas = await html2canvas(titleDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        width: titleDiv.offsetWidth,
+        height: titleDiv.offsetHeight
+      });
+      const titleImg = titleCanvas.toDataURL('image/png');
+      const titleWidth = pageWidth - 2 * margin;
+      const titleHeight = (titleCanvas.height * titleWidth) / titleCanvas.width;
+      doc.addImage(titleImg, 'PNG', margin, yPos, titleWidth, titleHeight);
+      yPos += titleHeight + 10;
+      document.body.removeChild(titleDiv);
+
+      // Дата генерации
+      const dateStr = new Date().toLocaleString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US");
+      const dateText = `${t('analytics.generatedOn') || 'Generated on'}: ${dateStr}`;
+      const dateDiv = await createTextElement(dateText, 10, 'normal', '#666666');
+      const dateCanvas = await html2canvas(dateDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false
+      });
+      const dateImg = dateCanvas.toDataURL('image/png');
+      const dateHeight = (dateCanvas.height * (pageWidth - 2 * margin)) / dateCanvas.width;
+      doc.addImage(dateImg, 'PNG', margin, yPos, pageWidth - 2 * margin, dateHeight);
+      yPos += dateHeight + 10;
+      document.body.removeChild(dateDiv);
+
+      // Статистика
+      const statsTitle = t('analytics.statistics') || 'Statistics';
+      const statsTitleDiv = await createTextElement(statsTitle, 16, 'bold');
+      const statsTitleCanvas = await html2canvas(statsTitleDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false
+      });
+      const statsTitleImg = statsTitleCanvas.toDataURL('image/png');
+      const statsTitleHeight = (statsTitleCanvas.height * (pageWidth - 2 * margin)) / statsTitleCanvas.width;
+      doc.addImage(statsTitleImg, 'PNG', margin, yPos, pageWidth - 2 * margin, statsTitleHeight);
+      yPos += statsTitleHeight + 8;
+      document.body.removeChild(statsTitleDiv);
+
+      // Статистика данные - рендерим все вместе для оптимизации
+      const statsData = [
+        `${t('analytics.stats.totalListens') || 'Total Listens'}: ${stats.totalListens}`,
+        `${t('analytics.stats.totalDuration') || 'Total Duration'}: ${formatMinutes(stats.totalDurationMinutes)}`,
+        `${t('analytics.stats.totalTracks') || 'Total Tracks'}: ${stats.totalTracks}`,
+        `${t('analytics.stats.avgDuration') || 'Average Duration'}: ${formatDuration(stats.avgTrackDuration)}`
+      ];
+
+      if (yPos > pageHeight - 50) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      const statsText = statsData.join('\n');
+      const statsDiv = await createTextElement(statsText, 11, 'normal');
+      const statsCanvas = await html2canvas(statsDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false
+      });
+      const statsImg = statsCanvas.toDataURL('image/png');
+      const statsHeight = (statsCanvas.height * (pageWidth - 2 * margin - 10)) / statsCanvas.width;
+      doc.addImage(statsImg, 'PNG', margin + 10, yPos, pageWidth - 2 * margin - 10, statsHeight);
+      yPos += statsHeight + 10;
+      document.body.removeChild(statsDiv);
+
+      // Экспорт графиков с улучшенными настройками для белой бумаги
+      const chartIds = [
+        { id: 'chart-daily-listens', title: t('analytics.charts.dailyListens') || 'Daily Listens' },
+        { id: 'chart-daily-duration', title: t('analytics.charts.dailyDuration') || 'Daily Duration' },
+        { id: 'chart-top-tracks', title: t('analytics.charts.topTracks') || 'Top Tracks' },
+        { id: 'chart-genres', title: t('analytics.charts.genres') || 'Genres' }
+      ];
+
+      for (const chart of chartIds) {
+        const chartElement = document.getElementById(chart.id) ||
+          document.querySelector(`[data-chart-id="${chart.id}"]`)?.parentElement;
+
+        if (chartElement && (chartElement as HTMLElement).offsetHeight > 0) {
+          if (yPos > pageHeight - 100) {
+            doc.addPage();
+            yPos = margin;
+          }
+
+          try {
+            // Создаем копию элемента с белым фоном для экспорта
+            const chartClone = chartElement.cloneNode(true) as HTMLElement;
+            chartClone.style.position = 'fixed';
+            chartClone.style.left = '-9999px';
+            chartClone.style.top = '0';
+            chartClone.style.backgroundColor = '#ffffff';
+            chartClone.style.padding = '20px';
+            chartClone.style.border = '1px solid #e0e0e0';
+            chartClone.style.borderRadius = '8px';
+            chartClone.style.boxShadow = 'none';
+
+            // Принудительно устанавливаем белый фон для всех дочерних элементов
+            const allChildren = chartClone.querySelectorAll('*');
+            allChildren.forEach((child) => {
+              const el = child as HTMLElement;
+              // Сохраняем оригинальные стили, но принудительно устанавливаем белый фон
+              if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'transparent') {
+                // Если фон не прозрачный, оставляем как есть, но улучшаем контраст
+              }
+              // Улучшаем читаемость текста
+              if (el.style && el.style.color) {
+                // Если цвет темный, делаем его более контрастным
+                const color = el.style.color;
+                if (color.includes('muted') || color.includes('gray') || color.includes('grey')) {
+                  el.style.color = '#333333';
+                }
+              }
+            });
+
+            document.body.appendChild(chartClone);
+
+            // Ждем рендеринга
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const canvas = await html2canvas(chartClone, {
+              backgroundColor: '#ffffff',
+              scale: 3, // Увеличиваем масштаб для лучшего качества
+              logging: false,
+              useCORS: true,
+              allowTaint: true,
+              windowWidth: chartClone.scrollWidth,
+              windowHeight: chartClone.scrollHeight,
+              onclone: (clonedDoc) => {
+                // Улучшаем стили в клонированном документе для лучшей читаемости
+                const clonedElement = clonedDoc.getElementById(chart.id) ||
+                  clonedDoc.querySelector(`[data-chart-id="${chart.id}"]`)?.parentElement as HTMLElement;
+
+                if (clonedElement) {
+                  // Устанавливаем белый фон и черный текст
+                  clonedElement.style.backgroundColor = '#ffffff';
+                  clonedElement.style.color = '#000000';
+
+                  // Улучшаем все SVG текстовые элементы (Recharts использует SVG)
+                  const textElements = clonedElement.querySelectorAll('text, tspan');
+                  textElements.forEach((el) => {
+                    const svgEl = el as SVGElement;
+                    const currentFill = svgEl.getAttribute('fill') || svgEl.style.fill;
+
+                    // Делаем все тексты черными или темно-серыми для лучшей читаемости
+                    if (!currentFill || currentFill === 'none' ||
+                      currentFill === '#666' || currentFill === '#999' ||
+                      currentFill === 'rgba(0,0,0,0.45)' || currentFill.includes('muted')) {
+                      svgEl.setAttribute('fill', '#000000');
+                      svgEl.style.fill = '#000000';
+                    } else if (currentFill !== '#000000' && currentFill !== '#000') {
+                      // Если цвет не черный, делаем его темнее для контраста
+                      svgEl.setAttribute('fill', '#333333');
+                      svgEl.style.fill = '#333333';
+                    }
+
+                    // Увеличиваем размер шрифта если он слишком маленький
+                    const fontSize = svgEl.getAttribute('font-size') || svgEl.style.fontSize;
+                    if (fontSize && parseInt(fontSize) < 12) {
+                      svgEl.setAttribute('font-size', '12');
+                      svgEl.style.fontSize = '12px';
+                    }
+
+                    // Делаем текст жирнее для лучшей читаемости
+                    svgEl.setAttribute('font-weight', '500');
+                    svgEl.style.fontWeight = '500';
+                  });
+
+                  // Улучшаем линии и границы для лучшей видимости
+                  const lineElements = clonedElement.querySelectorAll('line, path');
+                  lineElements.forEach((el) => {
+                    const svgEl = el as SVGElement;
+                    const stroke = svgEl.getAttribute('stroke');
+                    if (stroke && (stroke === '#e0e0e0' || stroke === '#f0f0f0' || stroke.includes('muted'))) {
+                      svgEl.setAttribute('stroke', '#cccccc');
+                      svgEl.style.stroke = '#cccccc';
+                    }
+                  });
+
+                  // Улучшаем цвета графиков для лучшей видимости на белом фоне
+                  const barElements = clonedElement.querySelectorAll('rect, circle, path[fill]');
+                  const colorMap: { [key: string]: string } = {
+                    '#8884d8': '#2563eb', // Синий
+                    '#82ca9d': '#16a34a', // Зеленый
+                    '#ffc658': '#ca8a04', // Желтый
+                    '#ff7300': '#ea580c', // Оранжевый
+                    '#00ff00': '#16a34a', // Зеленый
+                    '#0088fe': '#2563eb', // Синий
+                    '#00c49f': '#0891b2', // Голубой
+                    '#ffbb28': '#ca8a04', // Желтый
+                    '#ff8042': '#dc2626', // Красный
+                  };
+
+                  barElements.forEach((el) => {
+                    const svgEl = el as SVGElement;
+                    const fill = svgEl.getAttribute('fill');
+
+                    // Пропускаем элементы сетки и фона
+                    if (fill === '#ffffff' || fill === '#f5f5f5' || fill === 'transparent' || fill === 'none') {
+                      return;
+                    }
+
+                    // Улучшаем цвета для лучшей видимости
+                    if (fill && colorMap[fill]) {
+                      svgEl.setAttribute('fill', colorMap[fill]);
+                    } else if (fill && (fill.includes('rgba') && fill.includes('0.') && parseFloat(fill.split(',')[3] || '1') < 0.5)) {
+                      // Если цвет слишком прозрачный, делаем его более насыщенным
+                      svgEl.setAttribute('fill', '#2563eb');
+                      svgEl.setAttribute('opacity', '1');
+                    } else if (fill && fill.length === 7 && fill.startsWith('#')) {
+                      // Проверяем яркость цвета
+                      const rgb = parseInt(fill.slice(1), 16);
+                      const r = (rgb >> 16) & 0xff;
+                      const g = (rgb >> 8) & 0xff;
+                      const b = rgb & 0xff;
+                      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+                      // Если цвет слишком светлый, заменяем на более темный
+                      if (brightness > 200) {
+                        svgEl.setAttribute('fill', '#2563eb');
+                      }
+                    }
+                  });
+
+                  // Улучшаем сетку для лучшей видимости
+                  const gridLines = clonedElement.querySelectorAll('.recharts-cartesian-grid line');
+                  gridLines.forEach((el) => {
+                    const svgEl = el as SVGElement;
+                    const stroke = svgEl.getAttribute('stroke');
+                    if (stroke && (stroke === '#e0e0e0' || stroke === '#f0f0f0' || stroke === '#e5e5e5')) {
+                      svgEl.setAttribute('stroke', '#d0d0d0');
+                      svgEl.setAttribute('stroke-width', '1');
+                    }
+                  });
+                }
+              }
+            });
+
+            document.body.removeChild(chartClone);
+
+            const imgData = canvas.toDataURL('image/png'); // PNG формат с хорошим качеством
+            const imgWidth = pageWidth - 2 * margin;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            if (yPos + imgHeight > pageHeight - margin) {
+              doc.addPage();
+              yPos = margin;
+            }
+
+            // Заголовок графика через html2canvas
+            const chartTitleDiv = await createTextElement(chart.title, 14, 'bold');
+            const chartTitleCanvas = await html2canvas(chartTitleDiv, {
+              backgroundColor: '#ffffff',
+              scale: 2,
+              logging: false
+            });
+            const chartTitleImg = chartTitleCanvas.toDataURL('image/png');
+            const chartTitleHeight = (chartTitleCanvas.height * (pageWidth - 2 * margin)) / chartTitleCanvas.width;
+            if (yPos + chartTitleHeight > pageHeight - margin) {
+              doc.addPage();
+              yPos = margin;
+            }
+            doc.addImage(chartTitleImg, 'PNG', margin, yPos, pageWidth - 2 * margin, chartTitleHeight);
+            yPos += chartTitleHeight + 5;
+            document.body.removeChild(chartTitleDiv);
+
+            // Изображение графика
+            doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+            yPos += imgHeight + 10;
+          } catch (error) {
+            console.warn(`Failed to export chart ${chart.id}:`, error);
+          }
+        }
+      }
+
+      // История прослушиваний
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      const historyTitle = t('analytics.listeningHistory') || 'Listening History';
+      const historyTitleDiv = await createTextElement(historyTitle, 16, 'bold');
+      const historyTitleCanvas = await html2canvas(historyTitleDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false
+      });
+      const historyTitleImg = historyTitleCanvas.toDataURL('image/png');
+      const historyTitleHeight = (historyTitleCanvas.height * (pageWidth - 2 * margin)) / historyTitleCanvas.width;
+      doc.addImage(historyTitleImg, 'PNG', margin, yPos, pageWidth - 2 * margin, historyTitleHeight);
+      yPos += historyTitleHeight + 8;
+      document.body.removeChild(historyTitleDiv);
 
       const { data: historyData, error } = await supabase
         .from("listening_history")
         .select(`
           listened_at,
           duration_played,
+          completed,
           track:tracks(
             track_title,
             track_duration,
@@ -223,57 +1182,87 @@ const Analytics = () => {
         `)
         .eq("user_id", user.id)
         .order("listened_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
-      doc.setFontSize(9);
-      historyData?.forEach((item) => {
-        if (yPos > 280) {
+      // Рендерим историю через html2canvas для поддержки кириллицы
+      // Группируем записи для оптимизации (по 10 записей на изображение)
+      const itemsPerGroup = 10;
+      for (let i = 0; i < (historyData?.length || 0); i += itemsPerGroup) {
+        const group = historyData?.slice(i, i + itemsPerGroup) || [];
+
+        if (yPos > pageHeight - 100) {
           doc.addPage();
-          yPos = 20;
+          yPos = margin;
         }
-        
-        // Используем английскую локаль для даты и времени
-        const date = new Date(item.listened_at).toLocaleDateString("en-US");
-        const time = new Date(item.listened_at).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
-        const trackName = item.track?.track_title || "Unknown";
-        const artistName = item.track?.album?.artist?.artist_name || "Unknown";
-        const albumName = item.track?.album?.album_title || "Unknown";
-        const duration = formatDuration(item.duration_played || 0);
-        
-        // Формируем строки с ограничением длины
-        const dateTime = `${date} ${time}`;
-        const trackLine = `Track: ${trackName.length > 50 ? trackName.substring(0, 50) + '...' : trackName}`;
-        const artistLine = `Artist: ${artistName.length > 40 ? artistName.substring(0, 40) + '...' : artistName}`;
-        const albumLine = `Album: ${albumName.length > 40 ? albumName.substring(0, 40) + '...' : albumName}`;
-        const durationLine = `Duration: ${duration}`;
-        
-        // Разбиваем длинные строки если нужно
-        const lines = [
-          dateTime,
-          ...doc.splitTextToSize(trackLine, 180),
-          ...doc.splitTextToSize(artistLine, 180),
-          ...doc.splitTextToSize(albumLine, 180),
-          durationLine
-        ];
-        
-        lines.forEach((line: string) => {
-          if (yPos > 280) {
-            doc.addPage();
-            yPos = 20;
-          }
-          doc.text(line, 14, yPos);
-          yPos += 5;
+
+        const historyLines = group.map((item, idx) => {
+          const date = new Date(item.listened_at);
+          const dateStr = date.toLocaleString(t('common.russian') === 'Русский' ? "ru-RU" : "en-US", {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+
+          const trackName = item.track?.track_title || t('analytics.unknown') || 'Unknown';
+          const artistName = item.track?.album?.artist?.artist_name || t('analytics.unknown') || 'Unknown';
+          const albumName = item.track?.album?.album_title || t('analytics.unknown') || 'Unknown';
+          const duration = formatDuration(item.duration_played || 0);
+          const completed = item.completed ? (t('common.yes') || 'Yes') : (t('common.no') || 'No');
+
+          return [
+            `${i + idx + 1}. ${t('analytics.csvHeaders.date') || 'Date'}: ${dateStr}`,
+            `   ${t('analytics.csvHeaders.track') || 'Track'}: ${trackName}`,
+            `   ${t('analytics.csvHeaders.artist') || 'Artist'}: ${artistName}`,
+            `   ${t('analytics.csvHeaders.album') || 'Album'}: ${albumName}`,
+            `   ${t('analytics.csvHeaders.played') || 'Played'}: ${duration} | ${t('analytics.csvHeaders.completed') || 'Completed'}: ${completed}`
+          ].join('\n');
         });
-        
-        yPos += 3; // Отступ между записями
-      });
+
+        const historyText = historyLines.join('\n\n');
+        const historyDiv = await createTextElement(historyText, 9, 'normal');
+        const historyCanvas = await html2canvas(historyDiv, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false,
+          width: historyDiv.offsetWidth
+        });
+        const historyImg = historyCanvas.toDataURL('image/png');
+        const historyHeight = (historyCanvas.height * (pageWidth - 2 * margin - 10)) / historyCanvas.width;
+
+        if (yPos + historyHeight > pageHeight - margin) {
+          doc.addPage();
+          yPos = margin;
+        }
+
+        doc.addImage(historyImg, 'PNG', margin, yPos, pageWidth - 2 * margin, historyHeight);
+        yPos += historyHeight + 10;
+        document.body.removeChild(historyDiv);
+      }
+
+      // Футер
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${i} of ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
 
       doc.save(`analytics_${new Date().toISOString().split('T')[0]}.pdf`);
       toast.success(t('analytics.pdfExportSuccess'));
     } catch (error: any) {
-      toast.error(t('analytics.errorExport', { message: error.message }));
+      console.error('PDF Export Error:', error);
+      const errorMsg = error.message || 'Unknown error';
+      toast.error(`${t('analytics.errorExport') || 'Export error'}: ${errorMsg}`);
     }
   };
 
@@ -346,13 +1335,130 @@ const Analytics = () => {
         </Card>
       </div>
 
-      <Card className="p-8 bg-card/50 backdrop-blur text-center">
-        <BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-xl font-semibold mb-2">Визуализации в разработке</h3>
-        <p className="text-muted-foreground max-w-md mx-auto">
-          Скоро здесь появятся графики по жанрам, времени прослушивания и топ треков
-        </p>
+      {/* График прослушиваний по дням */}
+      <Card className="p-6 bg-card/50 backdrop-blur">
+        <h3 className="text-xl font-semibold mb-4">{t('analytics.charts.dailyListens')}</h3>
+        {dailyData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={dailyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="date"
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="listens" fill="#8884d8" name={t('analytics.charts.listens')} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            {t('analytics.charts.noData')}
+          </div>
+        )}
       </Card>
+
+      {/* График времени прослушивания по дням */}
+      <Card id="chart-daily-duration" className="p-6 bg-card/50 backdrop-blur">
+        <h3 className="text-xl font-semibold mb-4">{t('analytics.charts.dailyDuration')}</h3>
+        {dailyData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={dailyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="date"
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="duration"
+                stroke="#82ca9d"
+                strokeWidth={2}
+                name={t('analytics.charts.durationMinutes')}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            {t('analytics.charts.noData')}
+          </div>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Топ треков */}
+        <Card id="chart-top-tracks" className="p-6 bg-card/50 backdrop-blur">
+          <h3 className="text-xl font-semibold mb-4">{t('analytics.charts.topTracks')}</h3>
+          {topTracks.length > 0 ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+                data={topTracks}
+                layout="vertical"
+                margin={{ left: 100, right: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis
+                  dataKey="title"
+                  type="category"
+                  width={90}
+                  style={{ fontSize: '12px' }}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="listens" fill="#ffc658" name={t('analytics.charts.listens')} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              {t('analytics.charts.noData')}
+            </div>
+          )}
+        </Card>
+
+        {/* График по жанрам */}
+        <Card id="chart-genres" className="p-6 bg-card/50 backdrop-blur">
+          <h3 className="text-xl font-semibold mb-4">{t('analytics.charts.genres')}</h3>
+          {genreData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <PieChart>
+                <Pie
+                  data={genreData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={120}
+                  fill="#8884d8"
+                  dataKey="count"
+                  style={{ fontSize: '12px' }}
+                >
+                  {genreData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              {t('analytics.charts.noData')}
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 };
