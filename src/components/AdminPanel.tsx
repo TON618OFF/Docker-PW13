@@ -208,7 +208,7 @@ const AdminPanel = () => {
     (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.first_name && user.first_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.last_name && user.last_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  ).sort((a, b) => a.username.localeCompare(b.username));
 
   if (loading) {
     return (
@@ -220,16 +220,16 @@ const AdminPanel = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Crown className="w-8 h-8 text-red-500" />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <Crown className="w-8 h-8 text-red-500 flex-shrink-0" />
         <div>
-          <h1 className="text-3xl font-bold">{t('admin.title')}</h1>
-          <p className="text-muted-foreground">{t('admin.subtitle')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">{t('admin.title')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{t('admin.subtitle')}</p>
         </div>
       </div>
 
       {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <Users className="w-8 h-8 text-primary" />
@@ -314,40 +314,42 @@ const AdminPanel = () => {
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-card/50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg hover:bg-card/50 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="w-5 h-5 text-primary" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">
-                          {user.first_name && user.last_name
-                            ? `${user.first_name} ${user.last_name}`
-                            : user.username
-                          }
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold truncate">
+                          @{user.username}
                         </h3>
                         <Badge className={getRoleBadgeColor(user.role_name)}>
                           <div className="flex items-center gap-1">
                             {getRoleIcon(user.role_name)}
-                            {user.role_name}
+                            <span className="hidden sm:inline">{user.role_name}</span>
                           </div>
                         </Badge>
                       </div>
-                      {user.email && <p className="text-sm text-muted-foreground">{user.email}</p>}
+                      {(user.first_name || user.last_name) && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {user.first_name || ''} {user.last_name || ''}
+                        </p>
+                      )}
+                      {user.email && <p className="text-sm text-muted-foreground truncate">{user.email}</p>}
                       <p className="text-xs text-muted-foreground">
                         {t('admin.registration')}: {new Date(user.created_at).toLocaleDateString("ru-RU")}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Select
                       value={user.role_name}
                       onValueChange={(value) => handleRoleChange(user.id, value)}
                     >
-                      <SelectTrigger className="w-40">
+                      <SelectTrigger className="w-full sm:w-40">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -363,7 +365,7 @@ const AdminPanel = () => {
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDeleteUser(user.id)}
-                      className="hover:bg-destructive/10 hover:text-destructive"
+                      className="hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

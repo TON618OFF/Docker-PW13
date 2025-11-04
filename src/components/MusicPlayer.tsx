@@ -847,11 +847,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
         }}
       />
       
-      <Card className="fixed bottom-0 left-0 right-0 p-4 bg-card/95 backdrop-blur border-t shadow-player">
-        <div className="flex items-center gap-4">
+      <Card className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur border-t shadow-player">
+        {/* Desktop Layout */}
+        <div className="hidden md:flex items-center gap-4 p-4">
           {/* Обложка и информация о треке */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center overflow-hidden">
+            <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
               {track.album.album_cover_url ? (
                 <img
                   src={track.album.album_cover_url}
@@ -866,25 +867,27 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
             </div>
             
             <div className="min-w-0 flex-1">
-              <h4 className="font-semibold truncate">{track.track_title}</h4>
+              <h4 className="font-semibold truncate text-base">{track.track_title}</h4>
               <p className="text-sm text-muted-foreground truncate">
                 {track.album.artist.artist_name}
               </p>
             </div>
 
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={toggleFavorite}
-              className={isFavorite ? 'text-red-500 hover:text-red-600' : ''}
-              title={isFavorite ? t('messages.removeFromFavorites') : t('messages.addToFavorites')}
-            >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-            </Button>
-            
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={toggleFavorite}
+                className={`${isFavorite ? 'text-red-500 hover:text-red-600' : ''} h-8 w-8 p-0`}
+                title={isFavorite ? t('messages.removeFromFavorites') : t('messages.addToFavorites')}
+              >
+                <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+              </Button>
+              
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Основные элементы управления */}
@@ -895,20 +898,20 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsShuffled(!isShuffled)}
-                className={isShuffled ? 'text-primary' : ''}
+                className={`${isShuffled ? 'text-primary' : ''} h-8 w-8 p-0`}
                 title={isShuffled ? t('musicPlayer.shuffleOff') : t('musicPlayer.shuffleOn')}
               >
                 <Shuffle className="w-4 h-4" />
               </Button>
               
-              <Button variant="ghost" size="sm" onClick={previousTrack}>
+              <Button variant="ghost" size="sm" onClick={previousTrack} className="h-8 w-8 p-0">
                 <SkipBack className="w-4 h-4" />
               </Button>
               
               <Button
                 onClick={togglePlayPause}
                 disabled={isLoading || !audioUrl}
-                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90"
+                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 p-0"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -919,7 +922,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
                 )}
               </Button>
               
-              <Button variant="ghost" size="sm" onClick={nextTrack}>
+              <Button variant="ghost" size="sm" onClick={nextTrack} className="h-8 w-8 p-0">
                 <SkipForward className="w-4 h-4" />
               </Button>
               
@@ -931,7 +934,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
                   const currentIndex = modes.indexOf(repeatMode);
                   setRepeatMode(modes[(currentIndex + 1) % modes.length]);
                 }}
-                className={repeatMode !== 'none' ? 'text-primary' : ''}
+                className={`${repeatMode !== 'none' ? 'text-primary' : ''} h-8 w-8 p-0`}
                 title={
                   repeatMode === 'none' ? t('musicPlayer.repeatOff') :
                   repeatMode === 'one' ? t('musicPlayer.repeatOne') :
@@ -952,7 +955,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
             </div>
 
             {/* Прогресс-бар */}
-            <div className="flex items-center gap-2 w-full">
+            <div className="flex items-center gap-2 w-full px-1">
               <span className="text-xs text-muted-foreground min-w-[40px]">
                 {formatTime(currentTime)}
               </span>
@@ -973,7 +976,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
 
           {/* Громкость */}
           <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
-            <Button variant="ghost" size="sm" onClick={toggleMute}>
+            <Button variant="ghost" size="sm" onClick={toggleMute} className="h-8 w-8 p-0">
               {isMuted ? (
                 <VolumeX className="w-4 h-4" />
               ) : (
@@ -988,6 +991,125 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
               step={0.01}
               className="w-20"
             />
+          </div>
+        </div>
+
+        {/* Mobile Layout */}
+        <div className="md:hidden space-y-3 p-3">
+          {/* Первая строка: Прогресс-бар - выделен и увеличен для удобного перематывания */}
+          <div className="flex items-center gap-2 w-full px-2 py-2.5 bg-muted/30 rounded-lg border border-border/50">
+            <span className="text-xs font-semibold text-foreground min-w-[40px] tabular-nums text-center">
+              {formatTime(currentTime)}
+            </span>
+            
+            <div 
+              className="flex-1 relative" 
+              style={{ 
+                touchAction: 'none', 
+                paddingTop: '14px', 
+                paddingBottom: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              <Slider
+                value={[currentTime]}
+                onValueChange={handleSeek}
+                max={duration}
+                step={1}
+                className="[&>span]:h-3 [&>span>span]:h-3 [&>span>span>span]:h-6 [&>span>span>span]:w-6 [&>span>span>span]:shadow-lg"
+              />
+            </div>
+            
+            <span className="text-xs font-semibold text-foreground min-w-[40px] tabular-nums text-center">
+              {formatTime(duration)}
+            </span>
+          </div>
+
+          {/* Вторая строка: Информация о треке и кнопки управления */}
+          <div className="flex items-center gap-2">
+            {/* Обложка */}
+            <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+              {track.album.album_cover_url ? (
+                <img
+                  src={track.album.album_cover_url}
+                  alt={track.album.album_title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-primary text-base">♪</span>
+                </div>
+              )}
+            </div>
+
+            {/* Информация о треке */}
+            <div className="min-w-0 flex-1">
+              <h4 className="font-semibold truncate text-sm leading-tight">{track.track_title}</h4>
+              <p className="text-xs text-muted-foreground truncate">
+                {track.album.artist.artist_name}
+              </p>
+            </div>
+
+            {/* Кнопки управления */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button variant="ghost" size="sm" onClick={previousTrack} className="h-9 w-9 p-0">
+                <SkipBack className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                onClick={togglePlayPause}
+                disabled={isLoading || !audioUrl}
+                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 p-0 flex-shrink-0"
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : isPlaying ? (
+                  <Pause className="w-4 h-4" />
+                ) : (
+                  <Play className="w-4 h-4 ml-0.5" />
+                )}
+              </Button>
+              
+              <Button variant="ghost" size="sm" onClick={nextTrack} className="h-9 w-9 p-0">
+                <SkipForward className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Дополнительные кнопки */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={toggleFavorite}
+                className={`${isFavorite ? 'text-red-500 hover:text-red-600' : ''} h-9 w-9 p-0`}
+                title={isFavorite ? t('messages.removeFromFavorites') : t('messages.addToFavorites')}
+              >
+                <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+              </Button>
+              
+              <Button variant="ghost" size="sm" onClick={toggleMute} className="h-9 w-9 p-0">
+                {isMuted ? (
+                  <VolumeX className="w-4 h-4" />
+                ) : (
+                  <Volume2 className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Третья строка: Громкость (опционально, можно показывать при нажатии на кнопку громкости) */}
+          <div className="flex items-center gap-2 px-2">
+            <Volume2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <Slider
+              value={[isMuted ? 0 : volume]}
+              onValueChange={handleVolumeChange}
+              max={1}
+              step={0.01}
+              className="flex-1"
+            />
+            <span className="text-[10px] text-muted-foreground min-w-[28px]">
+              {Math.round((isMuted ? 0 : volume) * 100)}%
+            </span>
           </div>
         </div>
       </Card>

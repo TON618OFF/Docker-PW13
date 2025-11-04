@@ -22,16 +22,20 @@ interface Artist {
 const ArtistsManager = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { canManageContent } = useRole();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentActiveArtistId, setCurrentActiveArtistId] = useState<string | null>(null);
 
   useEffect(() => {
     const initUser = async () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (user) {
         setCurrentUserId(user.id);
+        // Загружаем ID текущего активного артиста (связанного с одобренной анкетой)
+        await loadCurrentActiveArtist(user.id);
       }
     };
     initUser();
@@ -44,6 +48,38 @@ const ArtistsManager = () => {
     }
   }, [currentUserId]);
 
+  const loadCurrentActiveArtist = async (userId: string) => {
+    try {
+      // Получаем одобренную анкету пользователя
+      const { data: approvedApplication } = await supabase
+        .from("artist_applications")
+        .select("id, artist_name, status")
+        .eq("user_id", userId)
+        .eq("status", "approved")
+        .order("reviewed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (approvedApplication) {
+        // Находим артиста, связанного с этой одобренной анкетой
+        const { data: currentArtist } = await supabase
+          .from("artists")
+          .select("id, artist_name")
+          .eq("user_id", userId)
+          .eq("artist_name", approvedApplication.artist_name)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (currentArtist) {
+          setCurrentActiveArtistId(currentArtist.id);
+        }
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки текущего артиста:", error);
+    }
+  };
+
   const fetchArtists = async () => {
     try {
       const { data: artistsResult, error } = await supabase
@@ -54,30 +90,21 @@ const ArtistsManager = () => {
       if (error) throw error;
 
       if (artistsResult) {
-        // Получаем треки для определения владельца артистов
-        if (currentUserId) {
-          const { data: tracksData } = await supabase
-            .from("tracks")
-            .select("album_id, uploaded_by")
-            .eq("uploaded_by", currentUserId);
-          
-          const userAlbumIds = new Set((tracksData || []).map(t => t.album_id));
-          
-          // Получаем артистов, связанных с альбомами пользователя
-          const { data: userArtists } = await supabase
-            .from("albums")
-            .select("artist_id")
-            .in("id", Array.from(userAlbumIds));
-          
-          const userArtistIds = new Set((userArtists || []).map(a => a.artist_id));
-          
+        // Определяем владельца артистов: только артист, связанный с одобренной анкетой
+        if (currentUserId && currentActiveArtistId) {
           const artistsWithOwnership = artistsResult.map(artist => ({
             ...artist,
-            isOwner: userArtistIds.has(artist.id)
+            // isOwner только если это текущий активный артист пользователя
+            isOwner: artist.id === currentActiveArtistId
           }));
           setArtists(artistsWithOwnership);
         } else {
-          setArtists(artistsResult);
+          // Если нет активного артиста, никто не является владельцем
+          const artistsWithOwnership = artistsResult.map(artist => ({
+            ...artist,
+            isOwner: false
+          }));
+          setArtists(artistsWithOwnership);
         }
       }
     } catch (error: any) {
@@ -205,7 +232,7 @@ const ArtistsManager = () => {
                       >
                         {artist.artist_name}
                       </CardTitle>
-                      {artist.isOwner && (
+                      {artist.isOwner && canManageContent && (
                         <div 
                           className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
                           onClick={(e) => e.stopPropagation()}
@@ -213,7 +240,7 @@ const ArtistsManager = () => {
                           <Button 
                             size="sm" 
                             variant="ghost" 
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => handleDeleteArtist(artist.id)}
                           >
                             <Trash2 className="w-4 h-4" />

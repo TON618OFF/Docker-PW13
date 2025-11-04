@@ -46,12 +46,15 @@ const ArtistsAlbumsManager = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("artists");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentActiveArtistId, setCurrentActiveArtistId] = useState<string | null>(null);
 
   useEffect(() => {
     const initUser = async () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (user) {
         setCurrentUserId(user.id);
+        // Загружаем ID текущего активного артиста (связанного с одобренной анкетой)
+        await loadCurrentActiveArtist(user.id);
       }
     };
     initUser();
@@ -63,6 +66,38 @@ const ArtistsAlbumsManager = () => {
       fetchData();
     }
   }, [currentUserId]);
+
+  const loadCurrentActiveArtist = async (userId: string) => {
+    try {
+      // Получаем одобренную анкету пользователя
+      const { data: approvedApplication } = await supabase
+        .from("artist_applications")
+        .select("id, artist_name, status")
+        .eq("user_id", userId)
+        .eq("status", "approved")
+        .order("reviewed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (approvedApplication) {
+        // Находим артиста, связанного с этой одобренной анкетой
+        const { data: currentArtist } = await supabase
+          .from("artists")
+          .select("id, artist_name")
+          .eq("user_id", userId)
+          .eq("artist_name", approvedApplication.artist_name)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (currentArtist) {
+          setCurrentActiveArtistId(currentArtist.id);
+        }
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки текущего артиста:", error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -85,30 +120,21 @@ const ArtistsAlbumsManager = () => {
       ]);
 
       if (artistsResult.data) {
-        // Получаем треки для определения владельца артистов
-        if (currentUserId) {
-          const { data: tracksData } = await supabase
-            .from("tracks")
-            .select("album_id, uploaded_by")
-            .eq("uploaded_by", currentUserId);
-          
-          const userAlbumIds = new Set((tracksData || []).map(t => t.album_id));
-          
-          // Получаем артистов, связанных с альбомами пользователя
-          const { data: userArtists } = await supabase
-            .from("albums")
-            .select("artist_id")
-            .in("id", Array.from(userAlbumIds));
-          
-          const userArtistIds = new Set((userArtists || []).map(a => a.artist_id));
-          
+        // Определяем владельца артистов: только артист, связанный с одобренной анкетой
+        if (currentUserId && currentActiveArtistId) {
           const artistsWithOwnership = artistsResult.data.map(artist => ({
             ...artist,
-            isOwner: userArtistIds.has(artist.id)
+            // isOwner только если это текущий активный артист пользователя
+            isOwner: artist.id === currentActiveArtistId
           }));
           setArtists(artistsWithOwnership);
         } else {
-          setArtists(artistsResult.data);
+          // Если нет активного артиста, никто не является владельцем
+          const artistsWithOwnership = artistsResult.data.map(artist => ({
+            ...artist,
+            isOwner: false
+          }));
+          setArtists(artistsWithOwnership);
         }
       }
       if (albumsResult.data) setAlbums(albumsResult.data);
@@ -223,13 +249,25 @@ const ArtistsAlbumsManager = () => {
                           >
                             {artist.artist_name}
                           </CardTitle>
-                          {artist.isOwner && (
+                          {artist.isOwner && canManageContent && (
                             <div 
                               className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <EditArtistDialog artist={artist} onArtistUpdated={fetchData} />
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (confirm("Вы уверены, что хотите удалить этого артиста?")) {
+                                    // Удаление артиста не должно быть доступно через UI
+                                    // Артисты удаляются только администраторами
+                                    toast.error("Удаление артистов доступно только администраторам");
+                                  }
+                                }}
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
@@ -302,12 +340,34 @@ const ArtistsAlbumsManager = () => {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg truncate">{album.album_title}</CardTitle>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <EditAlbumDialog album={album} artists={artists} onAlbumUpdated={fetchData} />
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      {currentActiveArtistId && album.artist.id === currentActiveArtistId && canManageContent && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <EditAlbumDialog album={album} artists={artists} onAlbumUpdated={fetchData} />
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm("Вы уверены, что хотите удалить этот альбом?")) {
+                                const { error } = await supabase
+                                  .from("albums")
+                                  .delete()
+                                  .eq("id", album.id);
+                                
+                                if (error) {
+                                  toast.error("Ошибка удаления альбома");
+                                } else {
+                                  toast.success("Альбом удален");
+                                  fetchData();
+                                }
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">{album.artist.artist_name}</p>
                   </CardHeader>

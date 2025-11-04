@@ -27,6 +27,7 @@ const Library = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [favoriteTrackIds, setFavoriteTrackIds] = useState<Set<string>>(new Set());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentActiveArtistId, setCurrentActiveArtistId] = useState<string | null>(null);
   const { playTrack, setPlaylist } = usePlayer();
 
   useEffect(() => {
@@ -34,12 +35,46 @@ const Library = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (user) {
         setCurrentUserId(user.id);
+        // Загружаем ID текущего активного артиста (связанного с одобренной анкетой)
+        await loadCurrentActiveArtist(user.id);
       }
     };
     initUser();
     fetchTracks();
     fetchFavoriteTracks();
   }, []);
+
+  const loadCurrentActiveArtist = async (userId: string) => {
+    try {
+      // Получаем одобренную анкету пользователя
+      const { data: approvedApplication } = await supabase
+        .from("artist_applications")
+        .select("id, artist_name, status")
+        .eq("user_id", userId)
+        .eq("status", "approved")
+        .order("reviewed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (approvedApplication) {
+        // Находим артиста, связанного с этой одобренной анкетой
+        const { data: currentArtist } = await supabase
+          .from("artists")
+          .select("id, artist_name")
+          .eq("user_id", userId)
+          .eq("artist_name", approvedApplication.artist_name)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (currentArtist) {
+          setCurrentActiveArtistId(currentArtist.id);
+        }
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки текущего артиста:", error);
+    }
+  };
 
   const fetchFavoriteTracks = async () => {
     try {
@@ -321,7 +356,8 @@ const Library = () => {
                           }`} 
                         />
                       </Button>
-                      {canManageContent && currentUserId && track.uploaded_by === currentUserId && (
+                      {canManageContent && currentUserId && track.uploaded_by === currentUserId && 
+                       currentActiveArtistId && track.album?.artist?.id === currentActiveArtistId && (
                         <Button
                           size="sm"
                           variant="ghost"

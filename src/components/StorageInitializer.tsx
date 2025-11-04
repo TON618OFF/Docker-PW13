@@ -126,17 +126,17 @@ const StorageInitializer = () => {
   };
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
+    <Card className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+        <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
           <Database className="w-5 h-5" />
           {t('admin.storage.title')}
         </h3>
-        <div className="flex gap-2">
-          <Button onClick={checkBuckets} disabled={initializing || checking} size="sm" variant="outline">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button onClick={checkBuckets} disabled={initializing || checking} size="sm" variant="outline" className="w-full sm:w-auto">
             {checking ? t('admin.storage.checking') : t('admin.storage.check')}
           </Button>
-          <Button onClick={initializeStorage} disabled={initializing} size="sm">
+          <Button onClick={initializeStorage} disabled={initializing} size="sm" className="w-full sm:w-auto">
             {initializing ? t('admin.storage.initializing') : t('admin.storage.initialize')}
           </Button>
         </div>

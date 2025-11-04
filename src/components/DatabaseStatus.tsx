@@ -71,9 +71,9 @@ const DatabaseStatus = () => {
   };
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
+    <Card className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+        <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
           <Database className="w-5 h-5" />
           {t('admin.dbStatus.title')}
         </h3>

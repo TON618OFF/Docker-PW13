@@ -46,9 +46,15 @@ const BecomeArtistForm = () => {
   });
 
   useEffect(() => {
-    fetchApplication();
     loadGenres();
   }, []);
+
+  // Перезагружаем анкету при изменении роли пользователя
+  useEffect(() => {
+    if (isListener !== undefined) {
+      fetchApplication();
+    }
+  }, [isListener]);
 
   const loadGenres = async () => {
     try {
@@ -65,21 +71,72 @@ const BecomeArtistForm = () => {
   const fetchApplication = async () => {
     try {
       const user = (await supabase.auth.getUser()).data.user;
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
+      // Если пользователь не является слушателем, не загружаем анкету
+      if (!isListener) {
+        setApplication(null);
+        setFormData({
+          artist_name: "",
+          artist_bio: "",
+          artist_image_url: "",
+          genre: "none",
+          portfolio_url: "",
+          instagram_url: "",
+          youtube_url: "",
+          motivation: "",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Для слушателей загружаем анкету
       const { data, error } = await supabase
         .from("artist_applications")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        throw error;
+        console.error("Ошибка загрузки анкеты:", error);
       }
 
-      if (data) {
+      // Если анкета не найдена или пользователь слушатель с approved анкетой
+      // (что означает, что роль была изменена, но анкета еще не удалена)
+      if (!data) {
+        // Анкета не найдена - форма готова для заполнения
+        setApplication(null);
+        setFormData({
+          artist_name: "",
+          artist_bio: "",
+          artist_image_url: "",
+          genre: "none",
+          portfolio_url: "",
+          instagram_url: "",
+          youtube_url: "",
+          motivation: "",
+        });
+      } else if (data.status === "approved" && isListener) {
+        // Если анкета approved, но пользователь слушатель - значит роль была изменена
+        // Игнорируем анкету и сбрасываем форму
+        setApplication(null);
+        setFormData({
+          artist_name: "",
+          artist_bio: "",
+          artist_image_url: "",
+          genre: "none",
+          portfolio_url: "",
+          instagram_url: "",
+          youtube_url: "",
+          motivation: "",
+        });
+      } else {
+        // Анкета найдена и валидна (pending или rejected)
         setApplication(data);
         setFormData({
           artist_name: data.artist_name || "",
@@ -94,6 +151,17 @@ const BecomeArtistForm = () => {
       }
     } catch (error) {
       console.error("Ошибка загрузки анкеты:", error);
+      setApplication(null);
+      setFormData({
+        artist_name: "",
+        artist_bio: "",
+        artist_image_url: "",
+        genre: "none",
+        portfolio_url: "",
+        instagram_url: "",
+        youtube_url: "",
+        motivation: "",
+      });
     } finally {
       setLoading(false);
     }
@@ -107,22 +175,34 @@ const BecomeArtistForm = () => {
       return;
     }
 
-    if (application && application.status === "pending") {
-      toast.error(t('becomeArtist.error.pending'));
-      return;
-    }
-
-    if (application && application.status === "approved") {
-      toast.error(t('becomeArtist.error.approved'));
-      return;
-    }
-
     setSubmitting(true);
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
         toast.error(t('becomeArtist.error.loginRequired'));
         return;
+      }
+
+      // Проверяем наличие анкеты (только для слушателей, approved анкеты игнорируются)
+      const { data: existingApp } = await supabase
+        .from("artist_applications")
+        .select("status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingApp && existingApp.status === "pending") {
+        toast.error(t('becomeArtist.error.pending'));
+        setSubmitting(false);
+        return;
+      }
+
+      // Если есть approved анкета и пользователь слушатель - это ошибка состояния
+      // (анкета должна была быть удалена триггером)
+      if (existingApp && existingApp.status === "approved" && isListener) {
+        // Игнорируем и продолжаем - позволяем создать новую анкету
+        console.warn("Approved application found for listener - should have been deleted by trigger");
       }
 
       const socialMediaUrls = {};
@@ -199,6 +279,9 @@ const BecomeArtistForm = () => {
     );
   };
 
+  // Не показываем approved анкету для слушателей (это означает, что роль была изменена)
+  const shouldShowApplication = application && !(application.status === "approved" && isListener);
+
   return (
     <Card className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -206,16 +289,16 @@ const BecomeArtistForm = () => {
           <Music className="w-6 h-6 text-primary" />
           <h2 className="text-2xl font-bold">{t('becomeArtist.title')}</h2>
         </div>
-        {application && getStatusBadge()}
+        {shouldShowApplication && getStatusBadge()}
       </div>
 
-      {application && application.status === "approved" && (
+      {shouldShowApplication && application.status === "approved" && (
         <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
           <p className="text-green-300 font-medium">{t('becomeArtist.approvedMessage')}</p>
         </div>
       )}
 
-      {application && application.status === "rejected" && (
+      {shouldShowApplication && application.status === "rejected" && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg space-y-2">
           <p className="text-red-300 font-medium">{t('becomeArtist.rejectedMessage')}</p>
           {application.review_comment && (
@@ -229,7 +312,7 @@ const BecomeArtistForm = () => {
         </div>
       )}
 
-      {application && application.status === "pending" && (
+      {shouldShowApplication && application.status === "pending" && (
         <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
           <p className="text-yellow-300">{t('becomeArtist.pendingMessage')}</p>
           <p className="text-yellow-200 text-sm mt-1">
@@ -247,7 +330,7 @@ const BecomeArtistForm = () => {
             onChange={(e) => setFormData({ ...formData, artist_name: e.target.value })}
             placeholder={t('becomeArtist.namePlaceholder')}
             required
-            disabled={application?.status === "pending" || application?.status === "approved"}
+            disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
           />
         </div>
 
@@ -259,7 +342,7 @@ const BecomeArtistForm = () => {
             onChange={(e) => setFormData({ ...formData, artist_bio: e.target.value })}
             placeholder={t('becomeArtist.bioPlaceholder')}
             rows={4}
-            disabled={application?.status === "pending" || application?.status === "approved"}
+            disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
           />
         </div>
 
@@ -271,7 +354,7 @@ const BecomeArtistForm = () => {
             bucket="covers"
             maxSizeMB={5}
             aspectRatio="square"
-            disabled={application?.status === "pending" || application?.status === "approved"}
+            disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
           />
         </div>
 
@@ -280,7 +363,7 @@ const BecomeArtistForm = () => {
           <Select
             value={formData.genre}
             onValueChange={(value) => setFormData({ ...formData, genre: value })}
-            disabled={application?.status === "pending" || application?.status === "approved"}
+            disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
           >
             <SelectTrigger>
               <SelectValue placeholder={t('becomeArtist.selectGenre')} />
@@ -304,7 +387,7 @@ const BecomeArtistForm = () => {
             value={formData.portfolio_url}
             onChange={(e) => setFormData({ ...formData, portfolio_url: e.target.value })}
             placeholder="https://..."
-            disabled={application?.status === "pending" || application?.status === "approved"}
+            disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
           />
         </div>
 
@@ -317,7 +400,7 @@ const BecomeArtistForm = () => {
               value={formData.instagram_url}
               onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
               placeholder="https://instagram.com/..."
-              disabled={application?.status === "pending" || application?.status === "approved"}
+              disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
             />
           </div>
           <div className="space-y-2">
@@ -328,7 +411,7 @@ const BecomeArtistForm = () => {
               value={formData.youtube_url}
               onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
               placeholder="https://youtube.com/..."
-              disabled={application?.status === "pending" || application?.status === "approved"}
+              disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
             />
           </div>
         </div>
@@ -341,7 +424,7 @@ const BecomeArtistForm = () => {
             onChange={(e) => setFormData({ ...formData, motivation: e.target.value })}
             placeholder={t('becomeArtist.motivationPlaceholder')}
             rows={3}
-            disabled={application?.status === "pending" || application?.status === "approved"}
+            disabled={shouldShowApplication && (application.status === "pending" || application.status === "approved")}
           />
         </div>
 

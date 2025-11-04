@@ -233,34 +233,34 @@ const Profile = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-24 md:pb-8">
       {/* Hero Section */}
-      <Card className="p-8 bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 border-primary/20">
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+      <Card className="p-4 sm:p-6 md:p-8 bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 border-primary/20">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 sm:gap-6">
           <div className="relative">
             {profile.avatar_url ? (
               <img
                 src={profile.avatar_url}
                 alt={profile.username}
-                className="w-32 h-32 rounded-full border-4 border-primary/50 object-cover shadow-2xl"
+                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-primary/50 object-cover shadow-2xl"
               />
             ) : (
-              <div className="w-32 h-32 rounded-full border-4 border-primary/50 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center shadow-2xl">
-                <User className="w-16 h-16 text-primary/50" />
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-primary/50 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center shadow-2xl">
+                <User className="w-12 h-12 sm:w-16 sm:h-16 text-primary/50" />
               </div>
             )}
             <div className="absolute -bottom-2 -right-2">
-              <Badge className="bg-primary text-primary-foreground shadow-lg">
+              <Badge className="bg-primary text-primary-foreground shadow-lg text-xs sm:text-sm">
                 {profile.role_name || t('profile.user')}
               </Badge>
             </div>
           </div>
           
-          <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">
               {profile.first_name && profile.last_name
                 ? `${profile.first_name} ${profile.last_name}`
                 : profile.username}
             </h1>
-            <p className="text-xl text-muted-foreground mb-4">@{profile.username}</p>
+            <p className="text-lg sm:text-xl text-muted-foreground mb-4 truncate">@{profile.username}</p>
             {profile.bio && (
               <p className="text-muted-foreground mb-4">{profile.bio}</p>
             )}

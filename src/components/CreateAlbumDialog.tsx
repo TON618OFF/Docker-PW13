@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import ImageUpload from "./ImageUpload";
@@ -36,11 +36,39 @@ const CreateAlbumDialog = ({ artists, onAlbumCreated }: CreateAlbumDialogProps) 
     album_description: "",
   });
 
+  // Сбрасываем форму при закрытии диалога
+  useEffect(() => {
+    if (!open) {
+      setFormData({
+        album_title: "",
+        album_release_date: "",
+        artist_id: "",
+        album_cover_url: "",
+        album_description: "",
+      });
+      setAvailableArtists([]);
+    }
+  }, [open]);
+
   useEffect(() => {
     if (open) {
       loadAvailableArtists();
     }
   }, [open, isArtist, isDistributor]);
+
+  // Автоматически устанавливаем артиста, если список содержит только одного артиста
+  useEffect(() => {
+    if (availableArtists.length === 1 && open) {
+      const singleArtist = availableArtists[0];
+      setFormData(prev => {
+        // Устанавливаем артиста только если он еще не установлен
+        if (prev.artist_id !== singleArtist.id) {
+          return { ...prev, artist_id: singleArtist.id };
+        }
+        return prev;
+      });
+    }
+  }, [availableArtists, open]);
 
   const loadAvailableArtists = async () => {
     try {
@@ -48,22 +76,63 @@ const CreateAlbumDialog = ({ artists, onAlbumCreated }: CreateAlbumDialogProps) 
       if (!user) return;
 
       // Для дистрибьютора - все артисты
-      // Для артиста - только его артист
+      // Для артиста - только текущий активный артист (связанный с одобренной анкетой)
       if (isArtist && !isDistributor) {
-        const { data: userArtists, error } = await supabase
-          .from("artists")
-          .select("id, artist_name")
+        // Получаем одобренную анкету пользователя
+        const { data: approvedApplication } = await supabase
+          .from("artist_applications")
+          .select("id, artist_name, status")
           .eq("user_id", user.id)
-          .order("artist_name");
-        
-        if (error) {
-          // Если поле user_id еще не существует, используем все артисты
-          console.warn("Поле user_id может отсутствовать в БД:", error);
-          setAvailableArtists(artists);
-        } else if (userArtists) {
-          setAvailableArtists(userArtists);
+          .eq("status", "approved")
+          .order("reviewed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (approvedApplication) {
+          // Находим артиста, связанного с этой одобренной анкетой
+          const { data: currentArtist, error } = await supabase
+            .from("artists")
+            .select("id, artist_name")
+            .eq("user_id", user.id)
+            .eq("artist_name", approvedApplication.artist_name)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error("Ошибка загрузки артиста:", error);
+            setAvailableArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "" }));
+          } else if (currentArtist) {
+            // Показываем только текущего активного артиста
+            // Артист будет установлен автоматически через useEffect
+            setAvailableArtists([currentArtist]);
+          } else {
+            setAvailableArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "" }));
+          }
         } else {
-          setAvailableArtists([]);
+          // Если нет одобренной анкеты, получаем самого нового артиста как fallback
+          const { data: latestArtist, error } = await supabase
+            .from("artists")
+            .select("id, artist_name")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error("Ошибка загрузки артиста:", error);
+            setAvailableArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "" }));
+          } else if (latestArtist) {
+            // Показываем последнего артиста (fallback)
+            // Артист будет установлен автоматически через useEffect
+            setAvailableArtists([latestArtist]);
+          } else {
+            setAvailableArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "" }));
+          }
         }
       } else {
         // Для дистрибьютора - все артисты
@@ -149,6 +218,9 @@ const CreateAlbumDialog = ({ artists, onAlbumCreated }: CreateAlbumDialogProps) 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('album.create.title')}</DialogTitle>
+          <DialogDescription>
+            {t('album.create.description') || 'Создайте новый альбом для артиста'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -166,6 +238,7 @@ const CreateAlbumDialog = ({ artists, onAlbumCreated }: CreateAlbumDialogProps) 
             <Select
               value={formData.artist_id}
               onValueChange={(value) => setFormData({ ...formData, artist_id: value })}
+              disabled={isArtist && !isDistributor && availableArtists.length === 1}
             >
               <SelectTrigger>
                 <SelectValue placeholder={t('album.create.selectArtist')} />

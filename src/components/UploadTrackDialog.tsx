@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Upload, Music, FileAudio } from "lucide-react";
@@ -42,12 +42,42 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
     { value: "m4a", label: "M4A" },
   ];
 
+  // Сбрасываем форму при закрытии диалога
+  React.useEffect(() => {
+    if (!open) {
+      setFormData({ track_title: "", artist_id: "", album_id: "", genre_id: "", file: null });
+      setArtists([]);
+      setAlbums([]);
+    }
+  }, [open]);
+
   // Загружаем данные при открытии диалога
   React.useEffect(() => {
     if (open) {
       loadInitialData();
     }
-  }, [open]);
+  }, [open, isArtist, isDistributor]);
+
+  // Автоматически устанавливаем артиста, если список содержит только одного артиста
+  React.useEffect(() => {
+    if (artists.length === 1 && open) {
+      const singleArtist = artists[0];
+      setFormData(prev => {
+        // Устанавливаем артиста только если он еще не установлен
+        if (prev.artist_id !== singleArtist.id) {
+          return { ...prev, artist_id: singleArtist.id, album_id: "" };
+        }
+        return prev;
+      });
+    }
+  }, [artists, open]);
+
+  // Загружаем альбомы когда выбран артист
+  React.useEffect(() => {
+    if (formData.artist_id && open) {
+      loadAlbumsForArtist(formData.artist_id);
+    }
+  }, [formData.artist_id, open]);
 
   const loadInitialData = async () => {
     try {
@@ -60,18 +90,67 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
 
       if (genresResult.data) setGenres(genresResult.data);
 
-      // Если пользователь артист, загружаем только его артиста
+      // Если пользователь артист, загружаем только его текущего активного артиста
+      // (связанного с одобренной анкетой, чтобы не показывать старых артистов)
       if (isArtist && !isDistributor) {
-        const { data: userArtist } = await supabase
-          .from("artists")
-          .select("id, artist_name")
+        // Получаем одобренную анкету пользователя
+        const { data: approvedApplication } = await supabase
+          .from("artist_applications")
+          .select("id, artist_name, status")
           .eq("user_id", user.id)
-          .single();
+          .eq("status", "approved")
+          .order("reviewed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        if (userArtist) {
-          setArtists([userArtist]);
-          // Автоматически устанавливаем артиста и загружаем его альбомы
-          handleArtistChange(userArtist.id);
+        if (approvedApplication) {
+          // Находим артиста, связанного с этой одобренной анкетой
+          // (по имени артиста и user_id, так как анкета создает артиста с таким именем)
+          const { data: currentArtist, error } = await supabase
+            .from("artists")
+            .select("id, artist_name")
+            .eq("user_id", user.id)
+            .eq("artist_name", approvedApplication.artist_name)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error("Ошибка загрузки артиста:", error);
+            toast.error(t('upload.error.loadArtists'));
+            setArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "", album_id: "" }));
+          } else if (currentArtist) {
+            // Показываем только текущего активного артиста
+            // Артист будет установлен автоматически через useEffect
+            setArtists([currentArtist]);
+          } else {
+            // Если артист не найден, показываем пустой список
+            setArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "", album_id: "" }));
+          }
+        } else {
+          // Если нет одобренной анкеты, получаем самого нового артиста как fallback
+          const { data: latestArtist, error } = await supabase
+            .from("artists")
+            .select("id, artist_name")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error("Ошибка загрузки артиста:", error);
+            setArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "", album_id: "" }));
+          } else if (latestArtist) {
+            // Показываем последнего артиста (fallback)
+            // Артист будет установлен автоматически через useEffect
+            setArtists([latestArtist]);
+          } else {
+            setArtists([]);
+            setFormData(prev => ({ ...prev, artist_id: "", album_id: "" }));
+          }
         }
       } else {
         // Для дистрибьютора загружаем всех артистов
@@ -80,7 +159,9 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
           .select("id, artist_name")
           .order("artist_name");
         
-        if (artistsResult.data) setArtists(artistsResult.data);
+        if (artistsResult.data) {
+          setArtists(artistsResult.data);
+        }
       }
     } catch (error) {
       console.error("Ошибка загрузки данных:", error);
@@ -281,6 +362,9 @@ const UploadTrackDialog = ({ onTrackUploaded }: UploadTrackDialogProps) => {
             <Music className="w-5 h-5" />
             {t('upload.title')}
           </DialogTitle>
+          <DialogDescription>
+            {t('upload.description') || 'Загрузите новый трек на платформу'}
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
