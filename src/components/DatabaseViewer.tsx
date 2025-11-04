@@ -40,11 +40,28 @@ const DatabaseViewer = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: tableData, error } = await supabase
+      // Определяем поле для сортировки в зависимости от таблицы
+      let orderByField: string | null = null;
+      
+      if (selectedTable === "listening_history") {
+        orderByField = "listened_at";
+      } else if (selectedTable === "playlist_tracks") {
+        orderByField = "added_at";
+      } else {
+        orderByField = "created_at";
+      }
+      
+      let query = supabase
         .from(selectedTable)
         .select("*")
-        .limit(limit)
-        .order("created_at", { ascending: false });
+        .limit(limit);
+
+      // Добавляем сортировку только если поле определено
+      if (orderByField) {
+        query = query.order(orderByField, { ascending: false });
+      }
+
+      const { data: tableData, error } = await query;
 
       if (error) throw error;
       setData(tableData || []);

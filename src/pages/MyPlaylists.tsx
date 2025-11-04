@@ -1,0 +1,298 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ListMusic, Music, Lock, Globe, Trash2, Heart, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
+import AddSongToPlaylistDialog from "@/components/AddSongToPlaylistDialog";
+import { useTranslation } from "@/hooks/useTranslation";
+
+interface Playlist {
+  id: string;
+  playlist_title: string;
+  playlist_description: string | null;
+  is_public: boolean;
+  playlist_cover_url: string | null;
+  created_at: string;
+  user_id: string;
+  song_count?: number;
+  user?: {
+    id: string;
+    username: string;
+  };
+}
+
+const MyPlaylists = () => {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [favoritePlaylistIds, setFavoritePlaylistIds] = useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initUser = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+      setCurrentUserId(user.id);
+    };
+    initUser();
+    fetchPlaylists();
+    fetchFavoritePlaylists();
+  }, []);
+
+  const fetchFavoritePlaylists = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("favorites_playlists")
+        .select("playlist_id")
+        .eq("user_id", user.id);
+
+      if (data) {
+        setFavoritePlaylistIds(new Set(data.map(item => item.playlist_id)));
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки избранных плейлистов:", error);
+    }
+  };
+
+  const toggleFavoritePlaylist = async (playlistId: string) => {
+    try {
+      const { data, error } = await supabase.rpc("toggle_favorite_playlist", {
+        p_playlist_id: playlistId,
+      });
+
+      if (error) throw error;
+      
+      const newFavorites = new Set(favoritePlaylistIds);
+      if (data.action === "added") {
+        newFavorites.add(playlistId);
+      } else {
+        newFavorites.delete(playlistId);
+      }
+      setFavoritePlaylistIds(newFavorites);
+      
+      toast.success(data.action === "added" ? t('messages.addedToFavorites') : t('messages.removedFromFavorites'));
+    } catch (error: any) {
+      toast.error(`Ошибка: ${error.message}`);
+    }
+  };
+
+  const fetchPlaylists = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      // Получаем только плейлисты текущего пользователя
+      const { data, error } = await supabase
+        .from("playlists")
+        .select(`
+          *,
+          user:users(
+            id,
+            username
+          )
+        `)
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get song counts and ensure user data is loaded
+      const playlistsWithCounts = await Promise.all(
+        (data || []).map(async (playlist) => {
+          const { count } = await supabase
+            .from("playlist_tracks")
+            .select("*", { count: "exact", head: true })
+            .eq("playlist_id", playlist.id);
+
+          let userData = playlist.user;
+          if (!userData && playlist.user_id) {
+            const { data: user } = await supabase
+              .from("users")
+              .select("id, username")
+              .eq("id", playlist.user_id)
+              .single();
+            if (user) userData = user;
+          }
+
+          return { ...playlist, song_count: count || 0, user: userData };
+        })
+      );
+
+      setPlaylists(playlistsWithCounts);
+    } catch (error: any) {
+      toast.error(t('playlists.loadError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePlaylist = async (playlistId: string) => {
+    if (!confirm(t('playlists.confirmRemove'))) return;
+
+    try {
+      const { error } = await supabase
+        .from("playlists")
+        .delete()
+        .eq("id", playlistId);
+      
+      if (error) throw error;
+      
+      toast.success(t('messages.deleted'));
+      fetchPlaylists();
+    } catch (error: any) {
+      toast.error(t('messages.error'));
+    }
+  };
+
+  return (
+    <div className="space-y-6 pb-24 md:pb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/profile")}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {t("common.back")}
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">{t('profile.myPlaylists')}</h1>
+            <p className="text-muted-foreground">{playlists.length} {t('playlists.title')}</p>
+          </div>
+        </div>
+        <CreatePlaylistDialog onPlaylistCreated={fetchPlaylists} />
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto"></div>
+        </div>
+      ) : playlists.length === 0 ? (
+        <Card className="p-12 text-center bg-card/50 backdrop-blur">
+          <ListMusic className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold mb-2">{t('playlists.empty')}</h3>
+          <p className="text-muted-foreground mb-6">
+            {t('playlists.createNew')}
+          </p>
+          <CreatePlaylistDialog onPlaylistCreated={fetchPlaylists} />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {playlists.map((playlist) => (
+            <Card
+              key={playlist.id}
+              className="group cursor-pointer hover:bg-card/80 transition-all overflow-hidden"
+              onClick={() => navigate(`/playlists/${playlist.id}`)}
+            >
+              <div className="aspect-square bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 relative overflow-hidden">
+                {playlist.playlist_cover_url ? (
+                  <img
+                    src={playlist.playlist_cover_url}
+                    alt={playlist.playlist_title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Music className="w-20 h-20 text-primary/40" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+
+              <div className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold text-lg truncate">{playlist.playlist_title}</h3>
+                  {playlist.is_public ? (
+                    <Globe className="w-4 h-4 text-primary flex-shrink-0" />
+                  ) : (
+                    <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                </div>
+
+                {playlist.playlist_description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {playlist.playlist_description}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-muted-foreground">
+                      {playlist.song_count} {playlist.song_count === 1 ? t('playlists.track') : t('playlists.tracks')}
+                    </p>
+                    {playlist.user && (
+                      <>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t('playlists.owner')}: {playlist.user.username}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div 
+                    className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {currentUserId && playlist.user_id === currentUserId && (
+                      <AddSongToPlaylistDialog 
+                        playlistId={playlist.id}
+                        playlistName={playlist.playlist_title}
+                        onSongAdded={fetchPlaylists}
+                      />
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavoritePlaylist(playlist.id);
+                      }}
+                      className="hover:bg-transparent"
+                    >
+                      <Heart 
+                        className={`w-4 h-4 ${
+                          favoritePlaylistIds.has(playlist.id) 
+                            ? "fill-red-500 text-red-500" 
+                            : "text-muted-foreground"
+                        }`} 
+                      />
+                    </Button>
+                    {currentUserId && playlist.user_id === currentUserId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePlaylist(playlist.id);
+                        }}
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MyPlaylists;
+

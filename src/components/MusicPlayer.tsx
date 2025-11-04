@@ -42,6 +42,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
   const lastLoggedTimeRef = useRef<number>(0);
   const logIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const playCountLoggedRef = useRef<string | null>(null); // ID трека, для которого уже засчитано прослушивание
+  const volumeRef = useRef<number>(volume);
+  const repeatModeRef = useRef<'none' | 'one' | 'all'>(repeatMode);
   const { 
     currentTrack, 
     nextTrack, 
@@ -51,6 +53,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
     setIsShuffled,
     shuffledPlaylist
   } = usePlayer();
+  const isShuffledRef = useRef<boolean>(isShuffled);
 
   // Используем трек из контекста, если он есть, иначе из пропсов
   const track = currentTrack || trackProp;
@@ -711,6 +714,110 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ track: trackProp, onTrackEnd 
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  // Обновляем refs при изменении состояния
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    repeatModeRef.current = repeatMode;
+  }, [repeatMode]);
+
+  useEffect(() => {
+    isShuffledRef.current = isShuffled;
+  }, [isShuffled]);
+
+  // Обработка горячих клавиш
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Игнорируем, если пользователь вводит текст в поле ввода
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Игнорируем, если нажаты модификаторы (Ctrl, Alt, Shift) кроме комбинаций
+      if (event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+
+      switch (event.code) {
+        case 'Space':
+          event.preventDefault();
+          togglePlayPause();
+          break;
+        
+        case 'ArrowLeft':
+          event.preventDefault();
+          previousTrack();
+          break;
+        
+        case 'ArrowRight':
+          event.preventDefault();
+          nextTrack();
+          break;
+        
+        case 'ArrowUp':
+          event.preventDefault();
+          const audio = audioRef.current;
+          if (audio) {
+            const currentVolume = volumeRef.current;
+            const newVolume = Math.min(1, currentVolume + 0.05);
+            audio.volume = newVolume;
+            setVolume(newVolume);
+            setIsMuted(newVolume === 0);
+            volumeRef.current = newVolume;
+          }
+          break;
+        
+        case 'ArrowDown':
+          event.preventDefault();
+          const audioDown = audioRef.current;
+          if (audioDown) {
+            const currentVolume = volumeRef.current;
+            const newVolume = Math.max(0, currentVolume - 0.05);
+            audioDown.volume = newVolume;
+            setVolume(newVolume);
+            setIsMuted(newVolume === 0);
+            volumeRef.current = newVolume;
+          }
+          break;
+        
+        case 'KeyR':
+          event.preventDefault();
+          const modes: ('none' | 'one' | 'all')[] = ['none', 'one', 'all'];
+          const currentRepeatMode = repeatModeRef.current;
+          const currentIndex = modes.indexOf(currentRepeatMode);
+          const nextMode = modes[(currentIndex + 1) % modes.length];
+          setRepeatMode(nextMode);
+          repeatModeRef.current = nextMode;
+          break;
+        
+        case 'KeyS':
+          event.preventDefault();
+          const currentShuffled = isShuffledRef.current;
+          const newShuffled = !currentShuffled;
+          setIsShuffled(newShuffled);
+          isShuffledRef.current = newShuffled;
+          break;
+        
+        case 'KeyM':
+          event.preventDefault();
+          toggleMute();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [togglePlayPause, previousTrack, nextTrack, setIsShuffled, toggleMute]);
 
   if (!track) {
     return (

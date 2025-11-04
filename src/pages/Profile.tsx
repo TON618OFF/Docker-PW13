@@ -288,7 +288,10 @@ const Profile = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:scale-105 transition-transform">
+        <Card 
+          className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:scale-105 transition-transform cursor-pointer"
+          onClick={() => navigate("/profile/my-tracks")}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('profile.myTracks')}</p>
@@ -300,7 +303,10 @@ const Profile = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20 hover:scale-105 transition-transform">
+        <Card 
+          className="p-6 bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20 hover:scale-105 transition-transform cursor-pointer"
+          onClick={() => navigate("/profile/my-playlists")}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('profile.myPlaylists')}</p>
@@ -312,7 +318,10 @@ const Profile = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20 hover:scale-105 transition-transform">
+        <Card 
+          className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20 hover:scale-105 transition-transform cursor-pointer"
+          onClick={() => navigate("/profile/my-favorites")}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('profile.favorites')}</p>

@@ -13,6 +13,9 @@ import ArtistDetail from "./pages/ArtistDetail";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import MyTracks from "./pages/MyTracks";
+import MyPlaylists from "./pages/MyPlaylists";
+import MyFavorites from "./pages/MyFavorites";
 import AdminPanel from "./components/AdminPanel";
 import ArtistApplicationsManager from "./components/ArtistApplicationsManager";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -43,6 +46,9 @@ const App = () => (
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/my-tracks" element={<MyTracks />} />
+                <Route path="/profile/my-playlists" element={<MyPlaylists />} />
+                <Route path="/profile/my-favorites" element={<MyFavorites />} />
                 <Route 
                   path="/admin" 
                   element={
