@@ -16,57 +16,97 @@
 
 -- Удаляем все триггеры
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
+
 DROP TRIGGER IF EXISTS update_users_updated_at ON public.users CASCADE;
+
 DROP TRIGGER IF EXISTS check_role_change ON public.users CASCADE;
+
 DROP TRIGGER IF EXISTS update_artists_updated_at ON public.artists CASCADE;
+
 DROP TRIGGER IF EXISTS update_albums_updated_at ON public.albums CASCADE;
+
 DROP TRIGGER IF EXISTS update_tracks_updated_at ON public.tracks CASCADE;
+
 DROP TRIGGER IF EXISTS update_playlists_updated_at ON public.playlists CASCADE;
+
 DROP TRIGGER IF EXISTS audit_tracks_trigger ON public.tracks CASCADE;
+
 DROP TRIGGER IF EXISTS audit_playlists_trigger ON public.playlists CASCADE;
+
 DROP TRIGGER IF EXISTS listening_history_trigger ON public.listening_history CASCADE;
+
 DROP TRIGGER IF EXISTS update_artist_applications_updated_at ON public.artist_applications CASCADE;
 
 -- Удаляем все таблицы в правильном порядке (с учётом зависимостей)
 DROP TABLE IF EXISTS public.favorites_tracks CASCADE;
+
 DROP TABLE IF EXISTS public.favorites_albums CASCADE;
+
 DROP TABLE IF EXISTS public.favorites_playlists CASCADE;
+
 DROP TABLE IF EXISTS public.artist_applications CASCADE;
+
 DROP TABLE IF EXISTS public.audit_log CASCADE;
+
 DROP TABLE IF EXISTS public.listening_history CASCADE;
+
 DROP TABLE IF EXISTS public.playlist_tracks CASCADE;
+
 DROP TABLE IF EXISTS public.track_genres CASCADE;
+
 DROP TABLE IF EXISTS public.playlists CASCADE;
+
 DROP TABLE IF EXISTS public.tracks CASCADE;
+
 DROP TABLE IF EXISTS public.albums CASCADE;
+
 DROP TABLE IF EXISTS public.artists CASCADE;
+
 DROP TABLE IF EXISTS public.genres CASCADE;
+
 DROP TABLE IF EXISTS public.users CASCADE;
+
 DROP TABLE IF EXISTS public.roles CASCADE;
 
 -- Удаляем представления
 DROP VIEW IF EXISTS public.track_statistics CASCADE;
+
 DROP VIEW IF EXISTS public.user_statistics CASCADE;
+
 DROP VIEW IF EXISTS public.playlist_duration CASCADE;
+
 DROP VIEW IF EXISTS public.album_duration CASCADE;
 
 -- Удаляем функции
 DROP FUNCTION IF EXISTS public.toggle_favorite_track (UUID) CASCADE;
+
 DROP FUNCTION IF EXISTS public.toggle_favorite_album (UUID) CASCADE;
+
 DROP FUNCTION IF EXISTS public.toggle_favorite_playlist (UUID) CASCADE;
+
 DROP FUNCTION IF EXISTS public.add_track_to_playlist (UUID, UUID, INTEGER) CASCADE;
+
 DROP FUNCTION IF EXISTS public.ensure_user_exists () CASCADE;
+
 DROP FUNCTION IF EXISTS public.log_listening () CASCADE;
+
 DROP FUNCTION IF EXISTS public.audit_changes () CASCADE;
+
 DROP FUNCTION IF EXISTS public.update_updated_at_column () CASCADE;
+
 DROP FUNCTION IF EXISTS public.handle_new_user () CASCADE;
+
 DROP FUNCTION IF EXISTS public.approve_artist_application (UUID) CASCADE;
+
 DROP FUNCTION IF EXISTS public.reject_artist_application (UUID, TEXT) CASCADE;
+
 DROP FUNCTION IF EXISTS public.check_role_not_changed () CASCADE;
+
 DROP FUNCTION IF EXISTS public.create_user_profile (UUID, TEXT, TEXT, TEXT) CASCADE;
 
 -- Удаляем типы
 DROP TYPE IF EXISTS public.audio_format CASCADE;
+
 DROP TYPE IF EXISTS public.app_role CASCADE;
 
 -- =================================================================================================
@@ -75,6 +115,7 @@ DROP TYPE IF EXISTS public.app_role CASCADE;
 
 -- Включение расширений
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =================================================================================================
@@ -82,6 +123,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =================================================================================================
 
 CREATE TYPE public.app_role AS ENUM ('слушатель', 'администратор', 'артист', 'дистрибьютор', 'модератор');
+
 CREATE TYPE public.audio_format AS ENUM ('mp3', 'wav', 'flac', 'ogg', 'm4a');
 
 -- =================================================================================================
@@ -354,46 +396,71 @@ CREATE TABLE public.artist_applications (
 -- =================================================================================================
 
 CREATE INDEX idx_users_username ON public.users (username);
+
 CREATE INDEX idx_users_role ON public.users (role_id);
+
 CREATE INDEX idx_users_last_login ON public.users (last_login);
+
 CREATE INDEX idx_users_created_at ON public.users (created_at);
 
 CREATE INDEX idx_tracks_album ON public.tracks (album_id);
+
 CREATE INDEX idx_tracks_play_count ON public.tracks (track_play_count DESC);
+
 CREATE INDEX idx_tracks_like_count ON public.tracks (track_like_count DESC);
+
 CREATE INDEX idx_tracks_created_at ON public.tracks (created_at);
+
 CREATE INDEX idx_tracks_is_public ON public.tracks (is_public);
+
 CREATE INDEX idx_tracks_uploaded_by ON public.tracks (uploaded_by);
 
 CREATE INDEX idx_albums_created_by ON public.albums (created_by);
+
 CREATE INDEX idx_albums_artist ON public.albums (artist_id);
 
 CREATE INDEX idx_artists_user ON public.artists (user_id);
 
 CREATE INDEX idx_playlists_user ON public.playlists (user_id);
+
 CREATE INDEX idx_playlists_is_public ON public.playlists (is_public);
+
 CREATE INDEX idx_playlists_follow_count ON public.playlists (follow_count DESC);
+
 CREATE INDEX idx_playlists_created_at ON public.playlists (created_at);
 
 CREATE INDEX idx_listening_user ON public.listening_history (user_id);
+
 CREATE INDEX idx_listening_track ON public.listening_history (track_id);
+
 CREATE INDEX idx_listening_date ON public.listening_history (listened_at);
+
 CREATE INDEX idx_listening_user_date ON public.listening_history (user_id, listened_at);
 
 CREATE INDEX idx_audit_user ON public.audit_log (user_id);
+
 CREATE INDEX idx_audit_table ON public.audit_log (table_name);
+
 CREATE INDEX idx_audit_timestamp ON public.audit_log (timestamp);
+
 CREATE INDEX idx_audit_action ON public.audit_log (action_type);
 
 CREATE INDEX idx_favorites_tracks_user ON public.favorites_tracks (user_id);
+
 CREATE INDEX idx_favorites_tracks_track ON public.favorites_tracks (track_id);
+
 CREATE INDEX idx_favorites_albums_user ON public.favorites_albums (user_id);
+
 CREATE INDEX idx_favorites_albums_album ON public.favorites_albums (album_id);
+
 CREATE INDEX idx_favorites_playlists_user ON public.favorites_playlists (user_id);
+
 CREATE INDEX idx_favorites_playlists_playlist ON public.favorites_playlists (playlist_id);
 
 CREATE INDEX idx_artist_applications_user ON public.artist_applications (user_id);
+
 CREATE INDEX idx_artist_applications_status ON public.artist_applications (status);
+
 CREATE INDEX idx_artist_applications_reviewed_by ON public.artist_applications (reviewed_by);
 
 -- =================================================================================================
@@ -1128,19 +1195,33 @@ CREATE TRIGGER update_artist_applications_updated_at
 -- =================================================================================================
 
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.artists ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.genres ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.albums ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.tracks ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.playlists ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.track_genres ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.playlist_tracks ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.listening_history ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.favorites_tracks ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.favorites_albums ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.favorites_playlists ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.artist_applications ENABLE ROW LEVEL SECURITY;
 
 -- =================================================================================================
@@ -1160,10 +1241,12 @@ SELECT TO authenticated USING (TRUE);
 
 CREATE POLICY "Users can update own profile" ON public.users FOR
 UPDATE TO authenticated USING (auth.uid () = id)
-WITH CHECK (auth.uid () = id);
+WITH
+    CHECK (auth.uid () = id);
 
 -- Политика для администраторов: могут обновлять любые поля любых пользователей
 DROP POLICY IF EXISTS "Admins can update any user" ON public.users;
+
 CREATE POLICY "Admins can update any user" ON public.users FOR
 UPDATE TO authenticated USING (
     EXISTS (
@@ -1175,19 +1258,21 @@ UPDATE TO authenticated USING (
             AND r.role_name = 'администратор'
     )
 )
-WITH CHECK (
-    EXISTS (
-        SELECT 1
-        FROM public.users u
-            JOIN public.roles r ON u.role_id = r.id
-        WHERE
-            u.id = auth.uid ()
-            AND r.role_name = 'администратор'
-    )
-);
+WITH
+    CHECK (
+        EXISTS (
+            SELECT 1
+            FROM public.users u
+                JOIN public.roles r ON u.role_id = r.id
+            WHERE
+                u.id = auth.uid ()
+                AND r.role_name = 'администратор'
+        )
+    );
 
 -- Политика для дистрибьюторов: могут обновлять role_id при одобрении анкет (слушатель -> артист)
 DROP POLICY IF EXISTS "Distributors can approve applications" ON public.users;
+
 CREATE POLICY "Distributors can approve applications" ON public.users FOR
 UPDATE TO authenticated USING (
     EXISTS (
@@ -1199,16 +1284,17 @@ UPDATE TO authenticated USING (
             AND r.role_name = 'дистрибьютор'
     )
 )
-WITH CHECK (
-    EXISTS (
-        SELECT 1
-        FROM public.users u
-            JOIN public.roles r ON u.role_id = r.id
-        WHERE
-            u.id = auth.uid ()
-            AND r.role_name = 'дистрибьютор'
-    )
-);
+WITH
+    CHECK (
+        EXISTS (
+            SELECT 1
+            FROM public.users u
+                JOIN public.roles r ON u.role_id = r.id
+            WHERE
+                u.id = auth.uid ()
+                AND r.role_name = 'дистрибьютор'
+        )
+    );
 
 -- Политики для артистов
 CREATE POLICY "Anyone can view artists" ON public.artists FOR
@@ -1221,15 +1307,17 @@ SELECT TO authenticated USING (TRUE);
 -- Политики для альбомов
 CREATE POLICY "Anyone can view public albums" ON public.albums FOR
 SELECT TO authenticated USING (
-    is_public = TRUE
-    OR is_active = TRUE
-);
+        is_public = TRUE
+        OR is_active = TRUE
+    );
 
 -- Политика INSERT: пользователь может создавать альбомы
 -- Дистрибьюторы и администраторы могут создавать альбомы для любых артистов
 -- Артисты могут создавать альбомы только для текущего активного артиста (одобренной анкетой)
 DROP POLICY IF EXISTS "Artists and distributors can insert albums" ON public.albums;
+
 DROP POLICY IF EXISTS "Artists can insert albums" ON public.albums;
+
 CREATE POLICY "Artists can insert albums" ON public.albums FOR
 INSERT
     TO authenticated
@@ -1281,7 +1369,9 @@ WITH
 
 -- Политика UPDATE: пользователь может обновлять свои альбомы
 DROP POLICY IF EXISTS "Users can delete own albums" ON public.albums;
+
 DROP POLICY IF EXISTS "Artists can update own albums" ON public.albums;
+
 CREATE POLICY "Artists can update own albums" ON public.albums FOR
 UPDATE TO authenticated USING (
     created_by = auth.uid ()
@@ -1330,6 +1420,7 @@ UPDATE TO authenticated USING (
 
 -- Политика DELETE: пользователь может удалять альбомы
 DROP POLICY IF EXISTS "Artists can delete own albums" ON public.albums;
+
 CREATE POLICY "Artists can delete own albums" ON public.albums FOR DELETE TO authenticated USING (
     created_by = auth.uid ()
     AND (
@@ -1385,7 +1476,9 @@ SELECT TO authenticated USING (uploaded_by = auth.uid ());
 -- Политика INSERT: пользователь может создавать треки только для альбомов текущего активного артиста
 -- Дистрибьюторы могут создавать треки для любых артистов
 DROP POLICY IF EXISTS "Authenticated users can insert tracks" ON public.tracks;
+
 DROP POLICY IF EXISTS "Artists can insert tracks" ON public.tracks;
+
 CREATE POLICY "Artists can insert tracks" ON public.tracks FOR
 INSERT
     TO authenticated
@@ -1438,7 +1531,9 @@ WITH
 
 -- Политика UPDATE: пользователь может обновлять свои треки
 DROP POLICY IF EXISTS "Users can update own tracks" ON public.tracks;
+
 DROP POLICY IF EXISTS "Artists can update own tracks" ON public.tracks;
+
 CREATE POLICY "Artists can update own tracks" ON public.tracks FOR
 UPDATE TO authenticated USING (
     uploaded_by = auth.uid ()
@@ -1488,7 +1583,9 @@ UPDATE TO authenticated USING (
 
 -- Политика DELETE: пользователь может удалять свои треки
 DROP POLICY IF EXISTS "Users can delete own tracks" ON public.tracks;
+
 DROP POLICY IF EXISTS "Artists can delete own tracks" ON public.tracks;
+
 CREATE POLICY "Artists can delete own tracks" ON public.tracks FOR DELETE TO authenticated USING (
     uploaded_by = auth.uid ()
     AND (
@@ -1566,17 +1663,17 @@ WITH
 -- Политики для связей плейлист-трек
 CREATE POLICY "Users can view tracks in accessible playlists" ON public.playlist_tracks FOR
 SELECT TO authenticated USING (
-    EXISTS (
-        SELECT 1
-        FROM public.playlists
-        WHERE
-            id = playlist_id
-            AND (
-                user_id = auth.uid ()
-                OR is_public = TRUE
-            )
-    )
-);
+        EXISTS (
+            SELECT 1
+            FROM public.playlists
+            WHERE
+                id = playlist_id
+                AND (
+                    user_id = auth.uid ()
+                    OR is_public = TRUE
+                )
+        )
+    );
 
 CREATE POLICY "Users can manage tracks in own playlists" ON public.playlist_tracks FOR ALL TO authenticated USING (
     EXISTS (
@@ -1635,15 +1732,15 @@ WITH
 
 CREATE POLICY "Distributors can view all artist applications" ON public.artist_applications FOR
 SELECT TO authenticated USING (
-    EXISTS (
-        SELECT 1
-        FROM public.users u
-            JOIN public.roles r ON u.role_id = r.id
-        WHERE
-            u.id = auth.uid ()
-            AND r.role_name = 'дистрибьютор'
-    )
-);
+        EXISTS (
+            SELECT 1
+            FROM public.users u
+                JOIN public.roles r ON u.role_id = r.id
+            WHERE
+                u.id = auth.uid ()
+                AND r.role_name = 'дистрибьютор'
+        )
+    );
 
 CREATE POLICY "Distributors can update artist applications" ON public.artist_applications FOR
 UPDATE TO authenticated USING (
@@ -1664,36 +1761,46 @@ UPDATE TO authenticated USING (
 INSERT INTO
     public.roles (role_name, role_description)
 VALUES (
-    'слушатель',
-    'Обычный пользователь, может слушать музыку и создавать плейлисты'
-),
-(
-    'администратор',
-    'Полный доступ ко всем функциям системы'
-),
-(
-    'артист',
-    'Может загружать и управлять своими треками и альбомами'
-),
-(
-    'дистрибьютор',
-    'Может загружать музыку от имени артистов'
-),
-(
-    'модератор',
-    'Может модерировать контент и пользователей'
-) ON CONFLICT (role_name) DO NOTHING;
+        'слушатель',
+        'Обычный пользователь, может слушать музыку и создавать плейлисты'
+    ),
+    (
+        'администратор',
+        'Полный доступ ко всем функциям системы'
+    ),
+    (
+        'артист',
+        'Может загружать и управлять своими треками и альбомами'
+    ),
+    (
+        'дистрибьютор',
+        'Может загружать музыку от имени артистов'
+    ),
+    (
+        'модератор',
+        'Может модерировать контент и пользователей'
+    ) ON CONFLICT (role_name) DO NOTHING;
 
 INSERT INTO
     public.genres (genre_name, genre_description)
-VALUES 
-    ('Поп', 'Популярная музыка'),
-    ('Рок', 'Рок-музыка во всех её проявлениях'),
-    ('Хип-Хоп', 'Хип-хоп и рэп музыка'),
-    ('Электронная', 'Электронная музыка'),
+VALUES ('Поп', 'Популярная музыка'),
+    (
+        'Рок',
+        'Рок-музыка во всех её проявлениях'
+    ),
+    (
+        'Хип-Хоп',
+        'Хип-хоп и рэп музыка'
+    ),
+    (
+        'Электронная',
+        'Электронная музыка'
+    ),
     ('Джаз', 'Джазовая музыка'),
-    ('Классическая', 'Классическая музыка')
-ON CONFLICT (genre_name) DO NOTHING;
+    (
+        'Классическая',
+        'Классическая музыка'
+    ) ON CONFLICT (genre_name) DO NOTHING;
 
 -- =================================================================================================
 -- 10. СОЗДАНИЕ STORAGE BUCKETS
@@ -1708,14 +1815,23 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS политики
 DROP POLICY IF EXISTS "Authenticated users can upload songs" ON storage.objects;
+
 DROP POLICY IF EXISTS "Users can view own songs" ON storage.objects;
+
 DROP POLICY IF EXISTS "Anyone can view public songs" ON storage.objects;
+
 DROP POLICY IF EXISTS "Users can delete own songs" ON storage.objects;
+
 DROP POLICY IF EXISTS "Anyone can view covers" ON storage.objects;
+
 DROP POLICY IF EXISTS "Authenticated users can upload covers" ON storage.objects;
+
 DROP POLICY IF EXISTS "Anyone can view avatars" ON storage.objects;
+
 DROP POLICY IF EXISTS "Authenticated users can upload avatars" ON storage.objects;
+
 DROP POLICY IF EXISTS "Users can delete own avatars" ON storage.objects;
+
 DROP POLICY IF EXISTS "Users can update own avatars" ON storage.objects;
 
 CREATE POLICY "Authenticated users can upload songs"
@@ -1785,4 +1901,3 @@ CREATE POLICY "Users can delete own avatars"
 -- Все таблицы, функции, триггеры и политики безопасности созданы.
 -- Версия: 6.0 (Полная рабочая версия со всеми исправлениями)
 -- =================================================================================================
-

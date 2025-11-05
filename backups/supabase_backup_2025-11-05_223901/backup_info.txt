@@ -1,0 +1,20 @@
+
+ImperialTunes Supabase Backup Information
+==========================================
+Дата создания: 05.11.2025, 22:39:12
+Время создания: 2025-11-05T19:39:12.536Z
+Supabase URL: https://xfemnksyqjnbecksxpcw.supabase.co
+Расположение: backups\supabase_backup_2025-11-05_223901
+
+БАЗА ДАННЫХ:
+  Размер: 0.13 MB
+  Файлы: database_backup_2025-11-05_223901.sql, database_data_2025-11-05_223901.json
+
+STORAGE:
+  Общий размер: 11.96 MB
+  Songs (аудио): 4 файлов
+  Covers (обложки): 7 файлов
+  Avatars (аватары): 2 файлов
+
+ОБЩИЙ РАЗМЕР: 12.10 MB
+==========================================
