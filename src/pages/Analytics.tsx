@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, TrendingUp, Clock, Music, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { BarChart3, TrendingUp, Clock, Music, Download, Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 import {
   BarChart,
   Bar,
@@ -33,22 +40,175 @@ const Analytics = () => {
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [topTracks, setTopTracks] = useState<any[]>([]);
   const [genreData, setGenreData] = useState<any[]>([]);
+  
+  // Фильтры для экспорта
+  const [filters, setFilters] = useState({
+    startDate: null as Date | null,
+    endDate: null as Date | null,
+    genreId: null as string | null,
+    artistId: null as string | null,
+    albumId: null as string | null,
+    completed: null as boolean | null,
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [genres, setGenres] = useState<any[]>([]);
+  const [artists, setArtists] = useState<any[]>([]);
+  const [albums, setAlbums] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchAnalytics();
-
-    // Обновляем данные каждые 10 секунд, чтобы видеть новые прослушивания
-    const interval = setInterval(() => {
-      fetchAnalytics();
-    }, 10000);
-
-    return () => clearInterval(interval);
+    fetchFilterData();
+    fetchAnalytics(); // Начальная загрузка данных
   }, []);
+
+  // Обновляем данные при изменении фильтров
+  useEffect(() => {
+    fetchAnalytics();
+  }, [filters.startDate, filters.endDate, filters.genreId, filters.artistId, filters.albumId, filters.completed]);
+
+  const fetchFilterData = async () => {
+    try {
+      const [genresRes, artistsRes] = await Promise.all([
+        supabase.from("genres").select("id, genre_name").eq("is_active", true).order("genre_name"),
+        supabase.from("artists").select("id, artist_name").order("artist_name"),
+      ]);
+
+      if (genresRes.data) setGenres(genresRes.data);
+      if (artistsRes.data) setArtists(artistsRes.data);
+    } catch (error) {
+      console.error("Error fetching filter data:", error);
+    }
+  };
+
+  const fetchAlbums = async (artistId?: string | null) => {
+    try {
+      let query = supabase.from("albums").select("id, album_title, artist_id").order("album_title");
+      if (artistId) {
+        query = query.eq("artist_id", artistId);
+      }
+      const { data } = await query;
+      if (data) setAlbums(data);
+    } catch (error) {
+      console.error("Error fetching albums:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlbums(filters.artistId);
+  }, [filters.artistId]);
+
+  // Функция для построения запроса с фильтрами
+  const buildFilteredQuery = (baseQuery: any) => {
+    let query = baseQuery;
+
+    // Применяем фильтры по дате
+    if (filters.startDate) {
+      query = query.gte("listened_at", filters.startDate.toISOString());
+    }
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      query = query.lte("listened_at", endDate.toISOString());
+    }
+    if (filters.completed !== null) {
+      query = query.eq("completed", filters.completed);
+    }
+
+    return query;
+  };
+
+  // Функция для получения track_ids по фильтрам
+  const getFilteredTrackIds = async (): Promise<string[] | null> => {
+    let trackIds: string[] | null = null;
+
+    // Если выбран жанр
+    if (filters.genreId) {
+      const { data: tracksWithGenre } = await supabase
+        .from("track_genres")
+        .select("track_id")
+        .eq("genre_id", filters.genreId);
+      
+      if (tracksWithGenre && tracksWithGenre.length > 0) {
+        trackIds = tracksWithGenre.map(tg => tg.track_id);
+      } else {
+        return []; // Нет треков с этим жанром
+      }
+    }
+
+    // Если выбран артист
+    if (filters.artistId) {
+      const { data: artistAlbums } = await supabase
+        .from("albums")
+        .select("id")
+        .eq("artist_id", filters.artistId);
+      
+      if (artistAlbums && artistAlbums.length > 0) {
+        const albumIds = artistAlbums.map(a => a.id);
+        const { data: tracksFromAlbums } = await supabase
+          .from("tracks")
+          .select("id")
+          .in("album_id", albumIds);
+        
+        if (tracksFromAlbums && tracksFromAlbums.length > 0) {
+          const artistTrackIds = tracksFromAlbums.map(t => t.id);
+          // Если уже есть trackIds от жанра, пересекаем их
+          if (trackIds) {
+            trackIds = trackIds.filter(id => artistTrackIds.includes(id));
+          } else {
+            trackIds = artistTrackIds;
+          }
+        } else {
+          return []; // Нет треков у этого артиста
+        }
+      } else {
+        return []; // Нет альбомов у этого артиста
+      }
+    }
+
+    // Если выбран альбом
+    if (filters.albumId) {
+      const { data: albumTracks } = await supabase
+        .from("tracks")
+        .select("id")
+        .eq("album_id", filters.albumId);
+      
+      if (albumTracks && albumTracks.length > 0) {
+        const albumTrackIds = albumTracks.map(t => t.id);
+        // Если уже есть trackIds, пересекаем их
+        if (trackIds) {
+          trackIds = trackIds.filter(id => albumTrackIds.includes(id));
+        } else {
+          trackIds = albumTrackIds;
+        }
+      } else {
+        return []; // Нет треков в этом альбоме
+      }
+    }
+
+    return trackIds;
+  };
 
   const fetchAnalytics = async () => {
     try {
+      setLoading(true);
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
+
+      // Получаем track_ids по фильтрам
+      const filteredTrackIds = await getFilteredTrackIds();
+      if (filteredTrackIds !== null && filteredTrackIds.length === 0) {
+        // Нет данных для выбранных фильтров
+        setStats({
+          totalListens: 0,
+          totalDurationMinutes: 0,
+          avgTrackDuration: 0,
+          totalTracks: 0,
+        });
+        setDailyData([]);
+        setTopTracks([]);
+        setGenreData([]);
+        setLoading(false);
+        return;
+      }
 
       // Получаем начало текущих суток
       const today = new Date();
@@ -61,53 +221,72 @@ const Analytics = () => {
       thirtyDaysAgo.setHours(0, 0, 0, 0);
       const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
 
-      // Получаем историю прослушиваний с информацией о треках
-      // Для totalDurationMinutes - только за сегодня
-      // Для остальной статистики - все прослушивания
-      const [todayData, allData, chartData] = await Promise.all([
-        supabase
-          .from("listening_history")
-          .select(`
-            duration_played,
-            track:tracks(
-              id,
-              track_duration
-            )
-          `)
-          .eq("user_id", user.id)
-          .gte("listened_at", todayISO),
-        supabase
-          .from("listening_history")
-          .select(`
-            duration_played,
-            track:tracks(
-              id,
-              track_duration
-            )
-          `)
-          .eq("user_id", user.id),
-        supabase
-          .from("listening_history")
-          .select(`
-            listened_at,
-            duration_played,
-            track_id,
-            completed,
-            track:tracks(
-              id,
-              track_title,
-              track_duration,
-              genres:track_genres(
-                genre:genres(
-                  id,
-                  genre_name
-                )
+      // Базовые запросы
+      let todayQuery = supabase
+        .from("listening_history")
+        .select(`
+          duration_played,
+          track:tracks(
+            id,
+            track_duration
+          )
+        `)
+        .eq("user_id", user.id)
+        .gte("listened_at", todayISO);
+
+      let allDataQuery = supabase
+        .from("listening_history")
+        .select(`
+          duration_played,
+          track:tracks(
+            id,
+            track_duration
+          )
+        `)
+        .eq("user_id", user.id);
+
+      let chartDataQuery = supabase
+        .from("listening_history")
+        .select(`
+          listened_at,
+          duration_played,
+          track_id,
+          completed,
+          track:tracks(
+            id,
+            track_title,
+            track_duration,
+            genres:track_genres(
+              genre:genres(
+                id,
+                genre_name
               )
             )
-          `, { count: 'exact' })
-          .eq("user_id", user.id)
-          .order("listened_at", { ascending: false })
-          .limit(100)
+          )
+        `, { count: 'exact' })
+        .eq("user_id", user.id)
+        .order("listened_at", { ascending: false })
+        .limit(1000); // Увеличиваем лимит для фильтров
+
+      // Применяем фильтры по track_id
+      if (filteredTrackIds !== null) {
+        todayQuery = todayQuery.in("track_id", filteredTrackIds);
+        allDataQuery = allDataQuery.in("track_id", filteredTrackIds);
+        chartDataQuery = chartDataQuery.in("track_id", filteredTrackIds);
+      }
+
+      // Применяем остальные фильтры (для todayQuery только completed, так как дата уже ограничена сегодня)
+      if (filters.completed !== null) {
+        todayQuery = todayQuery.eq("completed", filters.completed);
+      }
+      allDataQuery = buildFilteredQuery(allDataQuery);
+      chartDataQuery = buildFilteredQuery(chartDataQuery);
+
+      // Выполняем запросы
+      const [todayData, allData, chartData] = await Promise.all([
+        todayQuery,
+        allDataQuery,
+        chartDataQuery
       ]);
 
       if (todayData.error) {
@@ -132,80 +311,6 @@ const Analytics = () => {
         userId: user.id
       });
 
-      // Если нет данных, проверяем без фильтров по дате
-      if (!allData.data || allData.data.length === 0) {
-        console.log("No data found with filters, trying without date filters");
-        const { data: allDataNoFilter, error: allErrorNoFilter } = await supabase
-          .from("listening_history")
-          .select("id, listened_at, duration_played, track_id, user_id, completed")
-          .eq("user_id", user.id)
-          .order("listened_at", { ascending: false })
-          .limit(10);
-
-        console.log("All data without filters:", {
-          count: allDataNoFilter?.length || 0,
-          error: allErrorNoFilter,
-          sample: allDataNoFilter?.[0],
-          allSamples: allDataNoFilter
-        });
-
-        // Если нашли данные без фильтров, используем их
-        if (allDataNoFilter && allDataNoFilter.length > 0) {
-          // Загружаем информацию о треках
-          const trackIds = allDataNoFilter.map(item => item.track_id).filter(Boolean);
-          let tracksMap = new Map();
-
-          if (trackIds.length > 0) {
-            const { data: tracksData } = await supabase
-              .from("tracks")
-              .select(`
-                id,
-                track_title,
-                track_duration,
-                genres:track_genres(
-                  genre:genres(
-                    id,
-                    genre_name
-                  )
-                )
-              `)
-              .in("id", trackIds);
-
-            tracksMap = new Map(tracksData?.map(t => [t.id, t]) || []);
-          }
-
-          const enrichedData = allDataNoFilter.map(item => ({
-            ...item,
-            track: tracksMap.get(item.track_id) || null
-          }));
-
-          // Обновляем статистику на основе найденных данных
-          const totalListens = enrichedData.length;
-          const totalDurationSeconds = enrichedData.reduce((acc, curr) => acc + (curr.duration_played || 0), 0);
-          const totalDurationMinutes = Math.floor(totalDurationSeconds / 60);
-
-          const uniqueTrackIds = new Set(enrichedData.map(item => item.track_id).filter(Boolean));
-          const totalTracks = uniqueTrackIds.size;
-
-          const trackDurations = enrichedData
-            .filter(item => item.track?.track_duration)
-            .map(item => item.track.track_duration);
-
-          const avgTrackDuration = trackDurations.length > 0
-            ? Math.floor(trackDurations.reduce((acc, curr) => acc + curr, 0) / trackDurations.length)
-            : 0;
-
-          setStats({
-            totalListens,
-            totalDurationMinutes,
-            avgTrackDuration,
-            totalTracks,
-          });
-
-          // Обрабатываем данные для графиков
-          processChartData(enrichedData);
-        }
-      }
 
       // Суточное время прослушивания (только за сегодня)
       const totalDurationSeconds = todayData.data?.reduce((acc, curr) => acc + (curr.duration_played || 0), 0) || 0;
@@ -244,67 +349,13 @@ const Analytics = () => {
 
       // Обработка данных для графиков
       const chartDataArray = chartData.data || [];
-      console.log("Chart data array length:", chartDataArray.length);
       if (chartDataArray.length > 0) {
-        console.log("First chart item:", JSON.stringify(chartDataArray[0], null, 2));
-      } else {
-        // Попробуем загрузить данные без связей для отладки
-        const { data: simpleData, error: simpleError } = await supabase
-          .from("listening_history")
-          .select("id, listened_at, duration_played, track_id, user_id, completed")
-          .eq("user_id", user.id)
-          .order("listened_at", { ascending: false })
-          .limit(10);
-
-        console.log("Simple query result:", {
-          count: simpleData?.length || 0,
-          error: simpleError,
-          sample: simpleData?.[0]
-        });
-
-        if (simpleData && simpleData.length > 0) {
-          // Если есть данные, но нет связей - обрабатываем их
-          console.log("Found history records without track relations, processing simple data");
-          // Загружаем информацию о треках отдельно
-          const trackIds = simpleData.map(item => item.track_id).filter(Boolean);
-          if (trackIds.length > 0) {
-            const { data: tracksData } = await supabase
-              .from("tracks")
-              .select(`
-                id,
-                track_title,
-                track_duration,
-                genres:track_genres(
-                  genre:genres(
-                    id,
-                    genre_name
-                  )
-                )
-              `)
-              .in("id", trackIds);
-
-            const tracksMap = new Map(tracksData?.map(t => [t.id, t]) || []);
-
-            const enrichedData = simpleData.map(item => ({
-              ...item,
-              track: tracksMap.get(item.track_id) || null
-            }));
-
-            processChartData(enrichedData);
-          } else {
-            processChartData(simpleData.map(item => ({
-              ...item,
-              track: null
-            })));
-          }
-        } else {
-          console.log("No listening history data found at all");
-        }
-      }
-
-      if (chartDataArray.length > 0) {
-        console.log("Processing chart data with relations");
         processChartData(chartDataArray);
+      } else {
+        // Нет данных для графиков
+        setDailyData([]);
+        setTopTracks([]);
+        setGenreData([]);
       }
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -575,7 +626,8 @@ const Analytics = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
-      const { data: historyData, error } = await supabase
+      // Строим запрос с фильтрами
+      let query = supabase
         .from("listening_history")
         .select(`
           listened_at,
@@ -587,11 +639,90 @@ const Analytics = () => {
             album:albums(
               album_title,
               artist:artists(artist_name)
+            ),
+            genres:track_genres(
+              genre:genres(id, genre_name)
             )
           )
         `)
-        .eq("user_id", user.id)
-        .order("listened_at", { ascending: false });
+        .eq("user_id", user.id);
+
+      // Применяем фильтры
+      if (filters.startDate) {
+        query = query.gte("listened_at", filters.startDate.toISOString());
+      }
+      if (filters.endDate) {
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.lte("listened_at", endDate.toISOString());
+      }
+      if (filters.completed !== null) {
+        query = query.eq("completed", filters.completed);
+      }
+
+      // Если выбран жанр, фильтруем по трекам с этим жанром
+      if (filters.genreId) {
+        // Получаем все треки с выбранным жанром
+        const { data: tracksWithGenre } = await supabase
+          .from("track_genres")
+          .select("track_id")
+          .eq("genre_id", filters.genreId);
+        
+        if (tracksWithGenre && tracksWithGenre.length > 0) {
+          const trackIds = tracksWithGenre.map(tg => tg.track_id);
+          query = query.in("track_id", trackIds);
+        } else {
+          // Если нет треков с этим жанром, возвращаем пустой результат
+          toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+          return;
+        }
+      }
+
+      // Если выбран артист, фильтруем по альбомам этого артиста
+      if (filters.artistId) {
+        const { data: artistAlbums } = await supabase
+          .from("albums")
+          .select("id")
+          .eq("artist_id", filters.artistId);
+        
+        if (artistAlbums && artistAlbums.length > 0) {
+          const albumIds = artistAlbums.map(a => a.id);
+          // Получаем треки этих альбомов
+          const { data: tracksFromAlbums } = await supabase
+            .from("tracks")
+            .select("id")
+            .in("album_id", albumIds);
+          
+          if (tracksFromAlbums && tracksFromAlbums.length > 0) {
+            const trackIds = tracksFromAlbums.map(t => t.id);
+            query = query.in("track_id", trackIds);
+          } else {
+            toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+            return;
+          }
+        } else {
+          toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+          return;
+        }
+      }
+
+      // Если выбран альбом, фильтруем по трекам этого альбома
+      if (filters.albumId) {
+        const { data: albumTracks } = await supabase
+          .from("tracks")
+          .select("id")
+          .eq("album_id", filters.albumId);
+        
+        if (albumTracks && albumTracks.length > 0) {
+          const trackIds = albumTracks.map(t => t.id);
+          query = query.in("track_id", trackIds);
+        } else {
+          toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+          return;
+        }
+      }
+
+      const { data: historyData, error } = await query.order("listened_at", { ascending: false });
 
       if (error) throw error;
 
@@ -1165,7 +1296,8 @@ const Analytics = () => {
       yPos += historyTitleHeight + 8;
       document.body.removeChild(historyTitleDiv);
 
-      const { data: historyData, error } = await supabase
+      // Строим запрос с фильтрами (аналогично exportToCSV)
+      let query = supabase
         .from("listening_history")
         .select(`
           listened_at,
@@ -1180,9 +1312,81 @@ const Analytics = () => {
             )
           )
         `)
-        .eq("user_id", user.id)
-        .order("listened_at", { ascending: false })
-        .limit(100);
+        .eq("user_id", user.id);
+
+      // Применяем фильтры
+      if (filters.startDate) {
+        query = query.gte("listened_at", filters.startDate.toISOString());
+      }
+      if (filters.endDate) {
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.lte("listened_at", endDate.toISOString());
+      }
+      if (filters.completed !== null) {
+        query = query.eq("completed", filters.completed);
+      }
+
+      // Если выбран жанр
+      if (filters.genreId) {
+        const { data: tracksWithGenre } = await supabase
+          .from("track_genres")
+          .select("track_id")
+          .eq("genre_id", filters.genreId);
+        
+        if (tracksWithGenre && tracksWithGenre.length > 0) {
+          const trackIds = tracksWithGenre.map(tg => tg.track_id);
+          query = query.in("track_id", trackIds);
+        } else {
+          toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+          return;
+        }
+      }
+
+      // Если выбран артист
+      if (filters.artistId) {
+        const { data: artistAlbums } = await supabase
+          .from("albums")
+          .select("id")
+          .eq("artist_id", filters.artistId);
+        
+        if (artistAlbums && artistAlbums.length > 0) {
+          const albumIds = artistAlbums.map(a => a.id);
+          const { data: tracksFromAlbums } = await supabase
+            .from("tracks")
+            .select("id")
+            .in("album_id", albumIds);
+          
+          if (tracksFromAlbums && tracksFromAlbums.length > 0) {
+            const trackIds = tracksFromAlbums.map(t => t.id);
+            query = query.in("track_id", trackIds);
+          } else {
+            toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+            return;
+          }
+        } else {
+          toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+          return;
+        }
+      }
+
+      // Если выбран альбом
+      if (filters.albumId) {
+        const { data: albumTracks } = await supabase
+          .from("tracks")
+          .select("id")
+          .eq("album_id", filters.albumId);
+        
+        if (albumTracks && albumTracks.length > 0) {
+          const trackIds = albumTracks.map(t => t.id);
+          query = query.in("track_id", trackIds);
+        } else {
+          toast.warning(t('analytics.noDataForFilters') || 'No data found for selected filters');
+          return;
+        }
+      }
+
+      const { data: historyData, error } = await query.order("listened_at", { ascending: false }).limit(100);
 
       if (error) throw error;
 
@@ -1281,7 +1485,27 @@ const Analytics = () => {
           <h1 className="text-3xl font-bold mb-2">{t('analytics.title')}</h1>
           <p className="text-muted-foreground">{t('analytics.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button 
+            onClick={() => setShowFilters(!showFilters)} 
+            variant={showFilters ? "default" : "outline"} 
+            className="gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            {t('analytics.filters') || 'Filters'}
+            {(filters.startDate || filters.endDate || filters.genreId || filters.artistId || filters.albumId || filters.completed !== null) && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                {[
+                  filters.startDate ? 1 : 0,
+                  filters.endDate ? 1 : 0,
+                  filters.genreId ? 1 : 0,
+                  filters.artistId ? 1 : 0,
+                  filters.albumId ? 1 : 0,
+                  filters.completed !== null ? 1 : 0
+                ].reduce((a, b) => a + b, 0)}
+              </span>
+            )}
+          </Button>
           <Button onClick={exportToCSV} variant="outline" className="gap-2">
             <Download className="w-4 h-4" />
             {t('analytics.exportCSV')}
@@ -1292,6 +1516,186 @@ const Analytics = () => {
           </Button>
         </div>
       </div>
+
+      {/* Панель фильтров */}
+      {showFilters && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">{t('analytics.filters') || 'Filters'}</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowFilters(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Фильтр по дате начала */}
+            <div className="space-y-2">
+              <Label>{t('analytics.filterStartDate') || 'Start Date'}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.startDate ? format(filters.startDate, "PPP", { locale: ru }) : (
+                      <span>{t('analytics.selectDate') || 'Select date'}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={filters.startDate || undefined}
+                    onSelect={(date) => setFilters({ ...filters, startDate: date || null })}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Фильтр по дате конца */}
+            <div className="space-y-2">
+              <Label>{t('analytics.filterEndDate') || 'End Date'}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.endDate ? format(filters.endDate, "PPP", { locale: ru }) : (
+                      <span>{t('analytics.selectDate') || 'Select date'}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={filters.endDate || undefined}
+                    onSelect={(date) => setFilters({ ...filters, endDate: date || null })}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Фильтр по жанру */}
+            <div className="space-y-2">
+              <Label>{t('analytics.filterGenre') || 'Genre'}</Label>
+              <Select
+                value={filters.genreId || "all"}
+                onValueChange={(value) => setFilters({ ...filters, genreId: value === "all" ? null : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('analytics.allGenres') || 'All genres'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('analytics.allGenres') || 'All genres'}</SelectItem>
+                  {genres.map((genre) => (
+                    <SelectItem key={genre.id} value={genre.id}>
+                      {genre.genre_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Фильтр по исполнителю */}
+            <div className="space-y-2">
+              <Label>{t('analytics.filterArtist') || 'Artist'}</Label>
+              <Select
+                value={filters.artistId || "all"}
+                onValueChange={(value) => {
+                  setFilters({ ...filters, artistId: value === "all" ? null : value, albumId: null });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('analytics.allArtists') || 'All artists'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('analytics.allArtists') || 'All artists'}</SelectItem>
+                  {artists.map((artist) => (
+                    <SelectItem key={artist.id} value={artist.id}>
+                      {artist.artist_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Фильтр по альбому */}
+            <div className="space-y-2">
+              <Label>{t('analytics.filterAlbum') || 'Album'}</Label>
+              <Select
+                value={filters.albumId || "all"}
+                onValueChange={(value) => setFilters({ ...filters, albumId: value === "all" ? null : value })}
+                disabled={!filters.artistId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    filters.artistId 
+                      ? (t('analytics.allAlbums') || 'All albums')
+                      : (t('analytics.selectArtistFirst') || 'Select artist first')
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('analytics.allAlbums') || 'All albums'}</SelectItem>
+                  {albums
+                    .filter(album => !filters.artistId || album.artist_id === filters.artistId)
+                    .map((album) => (
+                      <SelectItem key={album.id} value={album.id}>
+                        {album.album_title}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Фильтр по завершённости */}
+            <div className="space-y-2">
+              <Label>{t('analytics.filterCompleted') || 'Completed'}</Label>
+              <Select
+                value={filters.completed === null ? "all" : filters.completed ? "true" : "false"}
+                onValueChange={(value) => 
+                  setFilters({ ...filters, completed: value === "all" ? null : value === "true" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('analytics.all') || 'All'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('analytics.all') || 'All'}</SelectItem>
+                  <SelectItem value="true">{t('common.yes') || 'Yes'}</SelectItem>
+                  <SelectItem value="false">{t('common.no') || 'No'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Кнопки управления фильтрами */}
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilters({
+                  startDate: null,
+                  endDate: null,
+                  genreId: null,
+                  artistId: null,
+                  albumId: null,
+                  completed: null,
+                });
+              }}
+            >
+              {t('analytics.clearFilters') || 'Clear Filters'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
@@ -1336,7 +1740,7 @@ const Analytics = () => {
       </div>
 
       {/* График прослушиваний по дням */}
-      <Card className="p-6 bg-card/50 backdrop-blur">
+      <Card id="chart-daily-listens" className="p-6 bg-card/50 backdrop-blur">
         <h3 className="text-xl font-semibold mb-4">{t('analytics.charts.dailyListens')}</h3>
         {dailyData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>

@@ -13,6 +13,7 @@ import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { usePlayer } from "@/contexts/PlayerContext";
 import ImageUpload from "@/components/ImageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
+import DataImport from "@/components/DataImport";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -290,11 +291,12 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${userRole === "администратор" ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <TabsTrigger value="profile">{t('settings.profile')}</TabsTrigger>
           <TabsTrigger value="favorites">{t('settings.favorites')}</TabsTrigger>
           <TabsTrigger value="appearance">{t('settings.appearance')}</TabsTrigger>
           <TabsTrigger value="security">{t('settings.password')}</TabsTrigger>
+          {userRole === "администратор" && <TabsTrigger value="import">Импорт данных</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -688,6 +690,12 @@ const Settings = () => {
             </div>
       </Card>
         </TabsContent>
+
+        {userRole === "администратор" && (
+          <TabsContent value="import" className="space-y-6">
+            <DataImport />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

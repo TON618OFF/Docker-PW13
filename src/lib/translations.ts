@@ -75,6 +75,22 @@ export type TranslationKey =
   | 'analytics.avgDuration'
   | 'analytics.exportCSV'
   | 'analytics.exportPDF'
+  | 'analytics.filters'
+  | 'analytics.filterGenre'
+  | 'analytics.filterArtist'
+  | 'analytics.filterAlbum'
+  | 'analytics.filterCompleted'
+  | 'analytics.filterStartDate'
+  | 'analytics.filterEndDate'
+  | 'analytics.allGenres'
+  | 'analytics.allArtists'
+  | 'analytics.allAlbums'
+  | 'analytics.all'
+  | 'analytics.selectDate'
+  | 'analytics.selectArtistFirst'
+  | 'analytics.clearFilters'
+  | 'analytics.applyFilters'
+  | 'analytics.noDataForFilters'
   | 'analytics.charts.dailyListens'
   | 'analytics.charts.dailyDuration'
   | 'analytics.charts.topTracks'
@@ -1110,6 +1126,22 @@ export const translations: Translations = {
     'playlists.playlistRemoved': 'Плейлист удалён из избранного',
     
     // Аналитика
+    'analytics.filters': 'Фильтры',
+    'analytics.filterGenre': 'Жанр',
+    'analytics.filterArtist': 'Исполнитель',
+    'analytics.filterAlbum': 'Альбом',
+    'analytics.filterCompleted': 'Завершённость',
+    'analytics.filterStartDate': 'Дата начала',
+    'analytics.filterEndDate': 'Дата окончания',
+    'analytics.allGenres': 'Все жанры',
+    'analytics.allArtists': 'Все исполнители',
+    'analytics.allAlbums': 'Все альбомы',
+    'analytics.all': 'Все',
+    'analytics.selectDate': 'Выберите дату',
+    'analytics.selectArtistFirst': 'Сначала выберите исполнителя',
+    'analytics.clearFilters': 'Очистить фильтры',
+    'analytics.applyFilters': 'Применить фильтры',
+    'analytics.noDataForFilters': 'Нет данных для выбранных фильтров',
     'analytics.loadError': 'Ошибка загрузки аналитики',
     'analytics.csvExportSuccess': 'Данные экспортированы в CSV',
     'analytics.pdfExportSuccess': 'Данные экспортированы в PDF',
@@ -1810,6 +1842,22 @@ export const translations: Translations = {
     'playlists.playlistRemoved': 'Playlist removed from favorites',
     
     // Analytics
+    'analytics.filters': 'Filters',
+    'analytics.filterGenre': 'Genre',
+    'analytics.filterArtist': 'Artist',
+    'analytics.filterAlbum': 'Album',
+    'analytics.filterCompleted': 'Completed',
+    'analytics.filterStartDate': 'Start Date',
+    'analytics.filterEndDate': 'End Date',
+    'analytics.allGenres': 'All genres',
+    'analytics.allArtists': 'All artists',
+    'analytics.allAlbums': 'All albums',
+    'analytics.all': 'All',
+    'analytics.selectDate': 'Select date',
+    'analytics.selectArtistFirst': 'Select artist first',
+    'analytics.clearFilters': 'Clear Filters',
+    'analytics.applyFilters': 'Apply Filters',
+    'analytics.noDataForFilters': 'No data found for selected filters',
     'analytics.loadError': 'Error loading analytics',
     'analytics.csvExportSuccess': 'Data exported to CSV',
     'analytics.pdfExportSuccess': 'Data exported to PDF',
