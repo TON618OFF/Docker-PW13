@@ -1,0 +1,37 @@
+stages:
+  - build
+  - lint
+  - test
+  - type-check
+
+cache:
+  paths:
+    - node_modules/
+
+build-vite-app:
+  stage: build
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 hour
+
+lint-eslint:
+  stage: lint
+  script:
+    - npm ci
+    - npm run lint
+
+test-vitest:
+  stage: test
+  script:
+    - npm ci
+    - npm run test
+
+type-check-typescript:
+  stage: type-check
+  script:
+    - npm ci
+    - npx tsc --noEmit
